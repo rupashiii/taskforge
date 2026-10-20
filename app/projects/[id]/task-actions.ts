@@ -260,3 +260,62 @@ export async function reclaimOverdueTask(formData: FormData) {
   revalidatePath("/dashboard");
   redirect(projectPath);
 }
+
+export async function cancelAndRefundOpenTask(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
+  const projectPath = `/projects/${projectId}`;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  // Call PostgreSQL RPC to cancel task and refund escrow atomically
+  const { error } = await supabase.rpc("cancel_unassigned_task", {
+    p_task_id: taskId,
+  });
+
+  if (error) fail(projectPath, error.message);
+
+  revalidatePath(projectPath);
+  revalidatePath("/wallet");
+  revalidatePath("/dashboard");
+  revalidatePath("/marketplace");
+  redirect(projectPath);
+}
+
+export async function extendTaskDeadline(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
+  const newDeadline = String(formData.get("newDeadline") ?? "").trim();
+  const projectPath = `/projects/${projectId}`;
+
+  if (!newDeadline) {
+    fail(projectPath, "Please select a valid future date.");
+  }
+
+  const deadlineDate = new Date(newDeadline);
+  if (Number.isNaN(deadlineDate.getTime()) || deadlineDate < new Date()) {
+    fail(projectPath, "The new deadline must be a future date.");
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { error } = await supabase.rpc("extend_task_deadline", {
+    p_task_id: taskId,
+    p_new_deadline: newDeadline,
+  });
+
+  if (error) fail(projectPath, error.message);
+
+  revalidatePath(projectPath);
+  revalidatePath("/marketplace");
+  revalidatePath("/dashboard");
+  redirect(projectPath);
+}

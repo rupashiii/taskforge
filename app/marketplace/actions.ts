@@ -43,12 +43,23 @@ export async function applyToTask(formData: FormData) {
   // Freelancers can only read open tasks, so this also checks the task is open.
   const { data: task } = await supabase
     .from("tasks")
-    .select("id, status")
+    .select("id, status, deadline")
     .eq("id", taskId)
     .single();
 
   if (!task || task.status !== "open")
     fail("/marketplace", "That task is no longer open.");
+
+  if (task.deadline) {
+    const deadlineDate = new Date(task.deadline);
+    deadlineDate.setHours(23, 59, 59, 999);
+    if (deadlineDate.getTime() < Date.now()) {
+      fail(
+        path,
+        "The deadline for this task has passed. New applications are closed until the client extends the deadline."
+      );
+    }
+  }
 
   const { data: existing } = await supabase
     .from("applications")

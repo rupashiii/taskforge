@@ -214,6 +214,9 @@ export default async function MarketplacePage({
               const skills: string[] = t.skills_required ?? [];
               const isMatch = skills.some((s) => mySkillSet.has(s));
               const isApplied = appliedIds.has(t.id);
+              const isExpired = t.deadline
+                ? new Date(t.deadline).setHours(23, 59, 59, 999) < Date.now()
+                : false;
 
               return (
                 <Link
@@ -229,6 +232,10 @@ export default async function MarketplacePage({
                       {isApplied ? (
                         <span className="shrink-0 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                           Applied
+                        </span>
+                      ) : isExpired ? (
+                        <span className="shrink-0 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                          Expired
                         </span>
                       ) : isMatch ? (
                         <span className="shrink-0 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-teal-700 flex items-center gap-1">

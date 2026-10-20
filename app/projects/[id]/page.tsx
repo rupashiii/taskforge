@@ -2,7 +2,14 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import TaskFields from "./task-fields";
-import { addTask, deleteTask, publishProject, reclaimOverdueTask } from "./task-actions";
+import {
+  addTask,
+  deleteTask,
+  publishProject,
+  reclaimOverdueTask,
+  cancelAndRefundOpenTask,
+  extendTaskDeadline,
+} from "./task-actions";
 import {
   ArrowLeft,
   Briefcase,
@@ -238,6 +245,10 @@ export default async function ProjectPage({
                   ["assigned", "in_progress", "revision_requested"].includes(t.status)
                     ? new Date(t.deadline).setHours(23, 59, 59, 999) < Date.now()
                     : false;
+                const isOpenExpired =
+                  t.status === "open" &&
+                  t.deadline &&
+                  new Date(t.deadline).setHours(23, 59, 59, 999) < Date.now();
                 const taskStatusCfg = TASK_STATUS[t.status] ?? {
                   label: t.status,
                   className: "bg-gray-100 text-gray-700 border-gray-200",
@@ -274,6 +285,11 @@ export default async function ProjectPage({
                           {isOverdue && (
                             <span className="inline-block rounded-full bg-red-100 border border-red-200 px-2.5 py-0.5 text-[10px] font-bold text-red-700 animate-pulse">
                               Overdue
+                            </span>
+                          )}
+                          {isOpenExpired && (
+                            <span className="inline-block rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-[10px] font-bold text-amber-800">
+                              Expired (Unassigned)
                             </span>
                           )}
                         </div>
@@ -363,6 +379,54 @@ export default async function ProjectPage({
                                 <span>Reclaim &amp; Reopen Task</span>
                               </button>
                             </form>
+                          )}
+
+                          {isOpenExpired && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/* Extend Deadline Details Form */}
+                              <details className="relative inline-block group">
+                                <summary className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer list-none">
+                                  <Calendar className="h-3.5 w-3.5" />
+                                  <span>Extend Deadline</span>
+                                </summary>
+                                <div className="absolute left-0 mt-2 p-3 bg-white border border-gray-200 rounded-xl shadow-xl z-30 w-72 space-y-2">
+                                  <form action={extendTaskDeadline} className="space-y-2">
+                                    <input type="hidden" name="projectId" value={id} />
+                                    <input type="hidden" name="taskId" value={t.id} />
+                                    <label className="block text-[11px] font-semibold text-gray-700">
+                                      Select New Target Deadline:
+                                    </label>
+                                    <input
+                                      type="date"
+                                      name="newDeadline"
+                                      required
+                                      min={new Date().toISOString().split("T")[0]}
+                                      className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                    />
+                                    <button
+                                      type="submit"
+                                      className="w-full rounded-lg bg-emerald-600 text-white font-medium py-1.5 text-xs hover:bg-emerald-700 transition-colors"
+                                    >
+                                      Save &amp; Reopen Applications
+                                    </button>
+                                  </form>
+                                </div>
+                              </details>
+
+                              {/* Cancel & Refund Escrow */}
+                              <form action={cancelAndRefundOpenTask} className="inline-block">
+                                <input type="hidden" name="projectId" value={id} />
+                                <input type="hidden" name="taskId" value={t.id} />
+                                <button
+                                  type="submit"
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors shadow-xs"
+                                  title="Cancel this expired task and immediately refund the escrow amount to your wallet."
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  <span>Cancel &amp; Refund ({inr(t.reward_amount)})</span>
+                                </button>
+                              </form>
+                            </div>
                           )}
                         </>
                       )}

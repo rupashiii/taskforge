@@ -85,8 +85,14 @@ export default async function TaskDetailPage({
 
   const isFreelancer = profile?.role === "freelancer";
   const isOpen = task.status === "open";
+  const isOverdue = task.deadline
+    ? new Date(task.deadline).setHours(23, 59, 59, 999) < Date.now()
+    : false;
   const canApply =
-    isFreelancer && isOpen && (!myApplication || myApplication.status === "withdrawn");
+    isFreelancer &&
+    isOpen &&
+    !isOverdue &&
+    (!myApplication || myApplication.status === "withdrawn");
 
   const skills: string[] = task.skills_required ?? [];
   const criteria: string[] = task.acceptance_criteria ?? [];
@@ -205,6 +211,20 @@ export default async function TaskDetailPage({
           ) : !isOpen ? (
             <div className="text-xs text-gray-500">
               This task is no longer open for new applications.
+            </div>
+          ) : isOverdue ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs text-amber-900 space-y-1">
+              <p className="font-bold flex items-center gap-1.5 text-amber-900 text-sm">
+                <Clock className="h-4 w-4 text-amber-600" />
+                <span>Deadline Expired — Applications Closed</span>
+              </p>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                The deadline for this task expired on{" "}
+                <span className="font-semibold underline">
+                  {new Date(task.deadline).toLocaleDateString("en-IN")}
+                </span>
+                . Applications are currently closed until the client chooses to extend the deadline.
+              </p>
             </div>
           ) : myApplication && myApplication.status !== "withdrawn" ? (
             <div className="space-y-3">
