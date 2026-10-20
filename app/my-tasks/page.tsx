@@ -145,6 +145,9 @@ export default async function MyTasksPage({
               };
               const history = historyByTask.get(task.id) ?? [];
               const latestReview = history[0]?.review;
+              const isOverdue = task.deadline && ["assigned", "in_progress", "revision_requested"].includes(task.status)
+                ? new Date(task.deadline).setHours(23, 59, 59, 999) < Date.now()
+                : false;
 
               return (
                 <div
@@ -178,9 +181,26 @@ export default async function MyTasksPage({
                     </p>
 
                     {task.deadline && (
-                      <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
-                        <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                        <span>Deadline: {new Date(task.deadline).toLocaleDateString("en-IN")}</span>
+                      <div className="mt-3 flex items-center gap-2 text-xs">
+                        <div
+                          className={`flex items-center gap-1.5 ${
+                            isOverdue ? "text-red-600 font-semibold" : "text-gray-500"
+                          }`}
+                        >
+                          <Calendar
+                            className={`h-3.5 w-3.5 ${
+                              isOverdue ? "text-red-500" : "text-gray-400"
+                            }`}
+                          />
+                          <span>
+                            Deadline: {new Date(task.deadline).toLocaleDateString("en-IN")}
+                          </span>
+                        </div>
+                        {isOverdue && (
+                          <span className="rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-[10px] font-bold">
+                            Deadline Passed (Overdue)
+                          </span>
+                        )}
                       </div>
                     )}
 
@@ -204,75 +224,93 @@ export default async function MyTasksPage({
 
                   {/* Actions / Interactive Area */}
                   <div className="p-6 bg-gray-50/30">
-                    {task.status === "assigned" && (
-                      <form action={startTask}>
-                        <input type="hidden" name="taskId" value={task.id} />
-                        <button
-                          type="submit"
-                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
-                        >
-                          <Play className="h-4 w-4 fill-white" />
-                          <span>Start Working on Task</span>
-                        </button>
-                      </form>
-                    )}
-
-                    {(task.status === "in_progress" || task.status === "revision_requested") && (
-                      <div className="space-y-4">
-                        {task.status === "revision_requested" && latestReview && (
-                          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs">
-                            <p className="font-semibold text-amber-900 flex items-center gap-1.5">
-                              <AlertCircle className="h-4 w-4 text-amber-600" />
-                              <span>Client Feedback (Revision {task.revision_count ?? 1} of {task.max_revisions ?? 3}):</span>
-                            </p>
-                            <p className="mt-1 text-amber-800 whitespace-pre-wrap">
-                              {latestReview.feedback}
-                            </p>
-                          </div>
+                    {isOverdue ? (
+                      <div className="rounded-xl border border-red-200 bg-red-50/90 p-4 text-xs text-red-800 space-y-1.5">
+                        <p className="font-bold text-red-900 flex items-center gap-1.5 text-sm">
+                          <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                          <span>Deadline has passed — Submissions are locked</span>
+                        </p>
+                        <p className="text-xs text-red-700 leading-relaxed">
+                          The target deadline for this task passed on{" "}
+                          <span className="font-semibold underline">
+                            {new Date(task.deadline).toLocaleDateString("en-IN")}
+                          </span>
+                          . Deliverables can no longer be submitted, and the client may reclaim and reopen this task on the marketplace.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {task.status === "assigned" && (
+                          <form action={startTask}>
+                            <input type="hidden" name="taskId" value={task.id} />
+                            <button
+                              type="submit"
+                              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                            >
+                              <Play className="h-4 w-4 fill-white" />
+                              <span>Start Working on Task</span>
+                            </button>
+                          </form>
                         )}
 
-                        <form action={submitWork} className="space-y-3">
-                          <input type="hidden" name="taskId" value={task.id} />
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">
-                              Deliverable Links (GitHub, Figma, Google Drive, Loom, PRs)
-                            </label>
-                            <textarea
-                              name="links"
-                              rows={3}
-                              required
-                              placeholder="https://github.com/user/repo/pull/1&#10;https://www.figma.com/file/..."
-                              className="w-full rounded-xl border border-gray-200 p-3 text-xs font-mono outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                            />
-                            <p className="text-[11px] text-gray-400 mt-1">One URL per line (up to 10 links).</p>
-                          </div>
+                        {(task.status === "in_progress" || task.status === "revision_requested") && (
+                          <div className="space-y-4">
+                            {task.status === "revision_requested" && latestReview && (
+                              <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs">
+                                <p className="font-semibold text-amber-900 flex items-center gap-1.5">
+                                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                                  <span>Client Feedback (Revision {task.revision_count ?? 1} of {task.max_revisions ?? 3}):</span>
+                                </p>
+                                <p className="mt-1 text-amber-800 whitespace-pre-wrap">
+                                  {latestReview.feedback}
+                                </p>
+                              </div>
+                            )}
 
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">
-                              Submission Notes (Optional)
-                            </label>
-                            <textarea
-                              name="notes"
-                              rows={2}
-                              maxLength={2000}
-                              placeholder="Brief summary of what was completed, instructions to test..."
-                              className="w-full rounded-xl border border-gray-200 p-3 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                            />
-                          </div>
+                            <form action={submitWork} className="space-y-3">
+                              <input type="hidden" name="taskId" value={task.id} />
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                  Deliverable Links (GitHub, Figma, Google Drive, Loom, PRs)
+                                </label>
+                                <textarea
+                                  name="links"
+                                  rows={3}
+                                  required
+                                  placeholder="https://github.com/user/repo/pull/1&#10;https://www.figma.com/file/..."
+                                  className="w-full rounded-xl border border-gray-200 p-3 text-xs font-mono outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                                />
+                                <p className="text-[11px] text-gray-400 mt-1">One URL per line (up to 10 links).</p>
+                              </div>
 
-                          <button
-                            type="submit"
-                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
-                          >
-                            <Send className="h-3.5 w-3.5" />
-                            <span>
-                              {task.status === "revision_requested"
-                                ? `Resubmit Revision ${Number(task.revision_count ?? 0) + 1}`
-                                : "Submit Deliverables for Review"}
-                            </span>
-                          </button>
-                        </form>
-                      </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                  Submission Notes (Optional)
+                                </label>
+                                <textarea
+                                  name="notes"
+                                  rows={2}
+                                  maxLength={2000}
+                                  placeholder="Brief summary of what was completed, instructions to test..."
+                                  className="w-full rounded-xl border border-gray-200 p-3 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                                />
+                              </div>
+
+                              <button
+                                type="submit"
+                                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                                <span>
+                                  {task.status === "revision_requested"
+                                    ? `Resubmit Revision ${Number(task.revision_count ?? 0) + 1}`
+                                    : "Submit Deliverables for Review"}
+                                </span>
+                              </button>
+                            </form>
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {task.status === "submitted" && (

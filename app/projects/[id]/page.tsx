@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import TaskFields from "./task-fields";
-import { addTask, deleteTask, publishProject } from "./task-actions";
+import { addTask, deleteTask, publishProject, reclaimOverdueTask } from "./task-actions";
 import {
   ArrowLeft,
   Briefcase,
@@ -18,6 +18,7 @@ import {
   Eye,
   ArrowRight,
   Sparkles,
+  RotateCcw,
 } from "lucide-react";
 
 const PROJECT_STATUS: Record<string, { label: string; className: string }> = {
@@ -232,6 +233,11 @@ export default async function ProjectPage({
               {taskList.map((t, idx) => {
                 const pending = pendingByTask.get(t.id) ?? 0;
                 const assignee = t.assigned_to ? nameById.get(t.assigned_to) : null;
+                const isOverdue =
+                  t.deadline &&
+                  ["assigned", "in_progress", "revision_requested"].includes(t.status)
+                    ? new Date(t.deadline).setHours(23, 59, 59, 999) < Date.now()
+                    : false;
                 const taskStatusCfg = TASK_STATUS[t.status] ?? {
                   label: t.status,
                   className: "bg-gray-100 text-gray-700 border-gray-200",
@@ -259,11 +265,18 @@ export default async function ProjectPage({
                         <span className="text-base font-bold font-mono tabular-nums text-emerald-600 block">
                           {inr(t.reward_amount)}
                         </span>
-                        <span
-                          className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-semibold mt-0.5 ${taskStatusCfg.className}`}
-                        >
-                          {taskStatusCfg.label}
-                        </span>
+                        <div className="flex items-center gap-1.5 justify-start sm:justify-end mt-0.5">
+                          <span
+                            className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${taskStatusCfg.className}`}
+                          >
+                            {taskStatusCfg.label}
+                          </span>
+                          {isOverdue && (
+                            <span className="inline-block rounded-full bg-red-100 border border-red-200 px-2.5 py-0.5 text-[10px] font-bold text-red-700 animate-pulse">
+                              Overdue
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -336,6 +349,21 @@ export default async function ProjectPage({
                                 : "View Applicants"}
                             </span>
                           </Link>
+
+                          {isOverdue && (
+                            <form action={reclaimOverdueTask} className="inline-block">
+                              <input type="hidden" name="projectId" value={id} />
+                              <input type="hidden" name="taskId" value={t.id} />
+                              <button
+                                type="submit"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors shadow-xs"
+                                title="The freelancer missed the deadline. Reclaim this task to re-open it on the marketplace."
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                <span>Reclaim &amp; Reopen Task</span>
+                              </button>
+                            </form>
+                          )}
                         </>
                       )}
                     </div>

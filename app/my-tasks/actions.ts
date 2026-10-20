@@ -17,6 +17,20 @@ export async function startTask(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: checkTask } = await supabase
+    .from("tasks")
+    .select("id, deadline")
+    .eq("id", taskId)
+    .single();
+
+  if (checkTask?.deadline) {
+    const deadlineDate = new Date(checkTask.deadline);
+    deadlineDate.setHours(23, 59, 59, 999);
+    if (deadlineDate.getTime() < Date.now()) {
+      fail("The deadline for this task has already passed.");
+    }
+  }
+
   const { error } = await supabase.rpc("start_task", { p_task_id: taskId });
   if (error) fail(error.message);
 
@@ -35,6 +49,21 @@ export async function submitWork(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  // Check deadline enforcement
+  const { data: taskData } = await supabase
+    .from("tasks")
+    .select("id, deadline, status")
+    .eq("id", taskId)
+    .single();
+
+  if (taskData?.deadline) {
+    const deadlineDate = new Date(taskData.deadline);
+    deadlineDate.setHours(23, 59, 59, 999);
+    if (deadlineDate.getTime() < Date.now()) {
+      fail("The deadline for this task has passed. Submissions are locked.");
+    }
+  }
 
   const links = linksRaw
     .split(/\r?\n/)

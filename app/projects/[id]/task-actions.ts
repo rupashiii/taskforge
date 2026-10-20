@@ -180,3 +180,83 @@ export async function publishProject(formData: FormData) {
   revalidatePath("/wallet");
   redirect(`/projects/${projectId}`);
 }
+
+export async function reclaimOverdueTask(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
+  const projectPath = `/projects/${projectId}`;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  // Verify client owns project
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, client_id")
+    .eq("id", projectId)
+    .eq("client_id", user.id)
+    .single();
+
+  if (!project) fail(projectPath, "Project not found or not owned by you.");
+
+  // Fetch task details
+  const { data: task } = await supabase
+    .from("tasks")
+    .select("id, title, status, deadline, assigned_to")
+    .eq("id", taskId)
+    .eq("project_id", projectId)
+    .single();
+
+  if (!task) fail(projectPath, "Task not found.");
+  if (!["assigned", "in_progress", "revision_requested"].includes(task.status)) {
+    fail(projectPath, "Only assigned or in-progress tasks can be reclaimed.");
+  }
+
+  if (!task.deadline) {
+    fail(projectPath, "This task does not have a deadline set.");
+  }
+
+  const deadlineDate = new Date(task.deadline);
+  deadlineDate.setHours(23, 59, 59, 999);
+  if (deadlineDate.getTime() >= Date.now()) {
+    fail(projectPath, "This task has not passed its deadline yet.");
+  }
+
+  const prevAssignee = task.assigned_to;
+
+  // Reopen task and remove assignment (Escrow remains held for next freelancer)
+  const { error } = await supabase
+    .from("tasks")
+    .update({
+      status: "open",
+      assigned_to: null,
+      revision_count: 0,
+    })
+    .eq("id", taskId);
+
+  if (error) fail(projectPath, error.message);
+
+  // Send notification to the freelancer
+  if (prevAssignee) {
+    try {
+      await supabase.from("notifications").insert({
+        user_id: prevAssignee,
+        title: "Task Reclaimed by Client ⏰",
+        message: `The deadline for "${task.title}" passed without delivery. The client has reopened the task.`,
+        link: "/marketplace",
+        type: "warning",
+      });
+    } catch (e) {
+      console.error("Failed to send notification:", e);
+    }
+  }
+
+  revalidatePath(projectPath);
+  revalidatePath("/my-tasks");
+  revalidatePath("/marketplace");
+  revalidatePath("/dashboard");
+  redirect(projectPath);
+}
