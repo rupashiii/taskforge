@@ -2,20 +2,19 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { startTask, submitWork } from "./actions";
-import SubmissionHistory, { type HistoryItem } from "@/components/submission-history";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationBell } from "@/components/NotificationBell";
+import SubmissionHistory, {
+  type HistoryItem,
+} from "@/components/submission-history";
 import {
   ArrowLeft,
-  Briefcase,
-  Play,
+  Clock,
+  CheckCircle2,
   Send,
   AlertCircle,
-  Clock,
-  IndianRupee,
-  Calendar,
-  Layers,
-  FileText,
-  CheckCircle2,
-  ExternalLink,
+  FileCheck2,
+  History,
 } from "lucide-react";
 
 const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`;
@@ -26,12 +25,36 @@ function one<T>(value: T | T[] | null | undefined): T | null {
 }
 
 const TASK_STATUS: Record<string, { label: string; className: string }> = {
-  assigned: { label: "Ready to start", className: "bg-blue-50 text-blue-700 border-blue-200" },
-  in_progress: { label: "In progress", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  submitted: { label: "In review", className: "bg-purple-50 text-purple-700 border-purple-200" },
-  revision_requested: { label: "Revision requested", className: "bg-orange-50 text-orange-700 border-orange-200" },
-  completed: { label: "Completed", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  cancelled: { label: "Cancelled", className: "bg-gray-100 text-gray-500 border-gray-200" },
+  assigned: {
+    label: "Ready to start",
+    className:
+      "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+  },
+  in_progress: {
+    label: "In progress",
+    className:
+      "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+  },
+  submitted: {
+    label: "Waiting for review",
+    className:
+      "bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+  },
+  revision_requested: {
+    label: "Revision requested",
+    className:
+      "bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
+  },
+  completed: {
+    label: "Completed & Paid",
+    className:
+      "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800",
+  },
+  cancelled: {
+    label: "Cancelled",
+    className:
+      "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700",
+  },
 };
 
 export default async function MyTasksPage({
@@ -58,6 +81,7 @@ export default async function MyTasksPage({
   const list = tasks ?? [];
   const taskIds = list.map((t) => t.id);
 
+  // Submission history (newest first) with the client's review for each
   const { data: submissions } = taskIds.length
     ? await supabase
         .from("submissions")
@@ -90,264 +114,280 @@ export default async function MyTasksPage({
       links: s.links ?? [],
       notes: s.notes,
       review: r
-        ? { decision: r.decision, feedback: r.feedback, created_at: r.created_at }
+        ? {
+            decision: r.decision,
+            feedback: r.feedback,
+            created_at: r.created_at,
+          }
         : null,
     };
-    historyByTask.set(s.task_id, [...(historyByTask.get(s.task_id) ?? []), item]);
+    historyByTask.set(s.task_id, [
+      ...(historyByTask.get(s.task_id) ?? []),
+      item,
+    ]);
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 py-8 px-6">
-      <div className="mx-auto max-w-4xl space-y-6">
+    <main className="min-h-screen bg-background text-foreground transition-colors">
+      {/* Header */}
+      <header className="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
+          <Link
+            href="/dashboard"
+            className="text-xl font-bold tracking-tight text-foreground"
+          >
+            Task<span className="text-primary">Forge</span>
+          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <NotificationBell userId={user.id} />
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-4xl px-6 py-8">
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back to dashboard</span>
+          Back to dashboard
         </Link>
 
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">My Assigned Tasks</h1>
-          <p className="mt-1 text-xs text-gray-500">
-            Work on assigned deliverables, submit proof links, and track revision requests.
-          </p>
-        </div>
+        <h1 className="mt-4 text-2xl font-bold text-foreground">My Tasks</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Tasks a client has assigned to you. Work on deliverables and submit
+          when ready for review.
+        </p>
 
         {error && (
-          <div className="flex items-center gap-2.5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700 shadow-sm">
-            <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-700 dark:text-red-300">
+            <AlertCircle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {list.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white p-12 text-center shadow-sm">
-            <Briefcase className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-            <h3 className="text-sm font-semibold text-gray-900">No active tasks assigned</h3>
-            <p className="mt-1 text-xs text-gray-500 max-w-sm mx-auto">
-              Browse the marketplace and apply for tasks matching your skills. Once a client selects you, tasks will appear here.
-            </p>
+          <div className="mt-6 rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground">
+            <p>No tasks assigned yet.</p>
             <Link
               href="/marketplace"
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-700 transition-colors shadow-sm"
+              className="mt-2 inline-block font-medium text-primary underline"
             >
-              Browse Marketplace
+              Browse the marketplace
             </Link>
           </div>
         ) : (
-          <div className="space-y-6">
-            {list.map((task: any) => {
-              const project = one<{ title: string }>(task.projects);
-              const statusCfg = TASK_STATUS[task.status] ?? {
-                label: task.status,
-                className: "bg-gray-100 text-gray-700 border-gray-200",
+          <ul className="mt-6 space-y-6">
+            {list.map((t) => {
+              const project = one<{ title: string }>(t.projects as any);
+              const status = TASK_STATUS[t.status] ?? {
+                label: t.status,
+                className: "bg-muted text-muted-foreground border-border",
               };
-              const history = historyByTask.get(task.id) ?? [];
-              const latestReview = history[0]?.review;
-              const isOverdue = task.deadline && ["assigned", "in_progress", "revision_requested"].includes(task.status)
-                ? new Date(task.deadline).setHours(23, 59, 59, 999) < Date.now()
-                : false;
+              const criteria: string[] = t.acceptance_criteria ?? [];
+              const history = historyByTask.get(t.id) ?? [];
+              const latestFeedback =
+                t.status === "revision_requested"
+                  ? history.find((h) => h.review?.decision === "revision")
+                      ?.review?.feedback
+                  : null;
+              const canSubmit =
+                t.status === "in_progress" || t.status === "revision_requested";
 
               return (
-                <div
-                  key={task.id}
-                  className="rounded-2xl border border-gray-200/80 bg-white shadow-sm overflow-hidden"
+                <li
+                  key={t.id}
+                  className="rounded-xl border border-border bg-card p-6 shadow-xs hover:border-border/80 transition-all"
                 >
-                  <div className="p-6 border-b border-gray-100">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div>
-                        {project?.title && (
-                          <span className="text-xs font-medium text-gray-400">
-                            Project: {project.title}
-                          </span>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-lg font-bold text-foreground">
+                        {t.title}
+                      </p>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                        <span className="font-medium text-foreground">
+                          {project?.title ?? "Project"}
+                        </span>
+                        {t.deadline && (
+                          <>
+                            <span>·</span>
+                            <Clock className="h-3 w-3" />
+                            Due{" "}
+                            {new Date(t.deadline).toLocaleDateString("en-IN")}
+                          </>
                         )}
-                        <h2 className="text-lg font-bold text-gray-900 mt-0.5">{task.title}</h2>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusCfg.className}`}
-                        >
-                          {statusCfg.label}
-                        </span>
-                        <span className="text-lg font-bold font-mono tabular-nums text-emerald-600">
-                          {inr(task.reward_amount)}
-                        </span>
-                      </div>
+                      </p>
                     </div>
-
-                    <p className="mt-3 text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">
-                      {task.description}
-                    </p>
-
-                    {task.deadline && (
-                      <div className="mt-3 flex items-center gap-2 text-xs">
-                        <div
-                          className={`flex items-center gap-1.5 ${
-                            isOverdue ? "text-red-600 font-semibold" : "text-gray-500"
-                          }`}
-                        >
-                          <Calendar
-                            className={`h-3.5 w-3.5 ${
-                              isOverdue ? "text-red-500" : "text-gray-400"
-                            }`}
-                          />
-                          <span>
-                            Deadline: {new Date(task.deadline).toLocaleDateString("en-IN")}
-                          </span>
-                        </div>
-                        {isOverdue && (
-                          <span className="rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-[10px] font-bold">
-                            Deadline Passed (Overdue)
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Acceptance criteria checklist */}
-                    {task.acceptance_criteria && task.acceptance_criteria.length > 0 && (
-                      <div className="mt-4 rounded-xl bg-gray-50/80 border border-gray-100 p-4">
-                        <p className="text-xs font-semibold text-gray-900 mb-2">
-                          Acceptance Criteria Checklist:
-                        </p>
-                        <ul className="space-y-1.5 text-xs text-gray-600">
-                          {task.acceptance_criteria.map((c: string, idx: number) => (
-                            <li key={idx} className="flex items-start gap-2">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                              <span>{c}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    <div className="shrink-0 text-right">
+                      <p className="text-xl font-bold text-foreground">
+                        {inr(t.reward_amount)}
+                      </p>
+                      <span
+                        className={`inline-block mt-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.className}`}
+                      >
+                        {status.label}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Actions / Interactive Area */}
-                  <div className="p-6 bg-gray-50/30">
-                    {isOverdue ? (
-                      <div className="rounded-xl border border-red-200 bg-red-50/90 p-4 text-xs text-red-800 space-y-1.5">
-                        <p className="font-bold text-red-900 flex items-center gap-1.5 text-sm">
-                          <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
-                          <span>Deadline has passed — Submissions are locked</span>
+                  <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed">
+                    {t.description}
+                  </p>
+
+                  {criteria.length > 0 && (
+                    <div className="mt-4 rounded-lg bg-muted/40 p-3.5 border border-border">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Acceptance criteria
+                      </p>
+                      <ul className="mt-2 space-y-1.5 text-sm">
+                        {criteria.map((c, i) => (
+                          <li
+                            key={i}
+                            className="flex items-start gap-2 text-foreground"
+                          >
+                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-500" />
+                            <span className="text-xs leading-normal">{c}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Action 1: Start work */}
+                  {t.status === "assigned" && (
+                    <form action={startTask} className="mt-4">
+                      <input type="hidden" name="taskId" value={t.id} />
+                      <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
+                        Start work
+                      </button>
+                    </form>
+                  )}
+
+                  {/* Revision notice */}
+                  {t.status === "revision_requested" && (
+                    <div className="mt-4 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50/70 dark:bg-orange-950/40 p-4 text-sm text-orange-900 dark:text-orange-200">
+                      <p className="font-semibold flex items-center gap-1.5">
+                        <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                        The client requested revisions (revision{" "}
+                        {t.revision_count ?? 0} of {t.max_revisions ?? 3})
+                      </p>
+                      {latestFeedback && (
+                        <p className="mt-1.5 pl-5 whitespace-pre-wrap text-xs text-orange-800 dark:text-orange-300">
+                          {latestFeedback}
                         </p>
-                        <p className="text-xs text-red-700 leading-relaxed">
-                          The target deadline for this task passed on{" "}
-                          <span className="font-semibold underline">
-                            {new Date(task.deadline).toLocaleDateString("en-IN")}
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action 2: Submit work */}
+                  {canSubmit && (
+                    <form
+                      action={submitWork}
+                      className="mt-5 space-y-4 rounded-xl border border-primary/30 bg-primary/5 dark:bg-primary/10 p-5"
+                    >
+                      <input type="hidden" name="taskId" value={t.id} />
+                      <div>
+                        <h3 className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                          <Send className="h-4 w-4 text-primary" />
+                          {t.status === "revision_requested"
+                            ? "Submit Updated Work"
+                            : "Submit Your Work"}
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Provide working links and deliverables for client
+                          verification and escrow approval.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          Deliverable Links{" "}
+                          <span className="font-normal lowercase">
+                            — one per line
                           </span>
-                          . Deliverables can no longer be submitted, and the client may reclaim and reopen this task on the marketplace.
+                        </label>
+                        <textarea
+                          name="links"
+                          required
+                          rows={3}
+                          placeholder={
+                            "https://github.com/org/repo\nhttps://www.figma.com/file/..."
+                          }
+                          className="w-full rounded-lg border border-input bg-background p-3 text-sm font-mono placeholder:font-sans placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                        />
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          Use GitHub, Figma, Google Drive, Vercel preview or any
+                          accessible link.
                         </p>
                       </div>
-                    ) : (
-                      <>
-                        {task.status === "assigned" && (
-                          <form action={startTask}>
-                            <input type="hidden" name="taskId" value={task.id} />
-                            <button
-                              type="submit"
-                              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
-                            >
-                              <Play className="h-4 w-4 fill-white" />
-                              <span>Start Working on Task</span>
-                            </button>
-                          </form>
-                        )}
 
-                        {(task.status === "in_progress" || task.status === "revision_requested") && (
-                          <div className="space-y-4">
-                            {task.status === "revision_requested" && latestReview && (
-                              <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs">
-                                <p className="font-semibold text-amber-900 flex items-center gap-1.5">
-                                  <AlertCircle className="h-4 w-4 text-amber-600" />
-                                  <span>Client Feedback (Revision {task.revision_count ?? 1} of {task.max_revisions ?? 3}):</span>
-                                </p>
-                                <p className="mt-1 text-amber-800 whitespace-pre-wrap">
-                                  {latestReview.feedback}
-                                </p>
-                              </div>
-                            )}
-
-                            <form action={submitWork} className="space-y-3">
-                              <input type="hidden" name="taskId" value={task.id} />
-                              <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                  Deliverable Links (GitHub, Figma, Google Drive, Loom, PRs)
-                                </label>
-                                <textarea
-                                  name="links"
-                                  rows={3}
-                                  required
-                                  placeholder="https://github.com/user/repo/pull/1&#10;https://www.figma.com/file/..."
-                                  className="w-full rounded-xl border border-gray-200 p-3 text-xs font-mono outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                                />
-                                <p className="text-[11px] text-gray-400 mt-1">One URL per line (up to 10 links).</p>
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                                  Submission Notes (Optional)
-                                </label>
-                                <textarea
-                                  name="notes"
-                                  rows={2}
-                                  maxLength={2000}
-                                  placeholder="Brief summary of what was completed, instructions to test..."
-                                  className="w-full rounded-xl border border-gray-200 p-3 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-                                />
-                              </div>
-
-                              <button
-                                type="submit"
-                                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
-                              >
-                                <Send className="h-3.5 w-3.5" />
-                                <span>
-                                  {task.status === "revision_requested"
-                                    ? `Resubmit Revision ${Number(task.revision_count ?? 0) + 1}`
-                                    : "Submit Deliverables for Review"}
-                                </span>
-                              </button>
-                            </form>
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {task.status === "submitted" && (
-                      <div className="flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50/60 p-4 text-xs text-purple-900">
-                        <Clock className="h-4 w-4 text-purple-600 shrink-0" />
-                        <span>Work submitted! Awaiting the client's review decision.</span>
+                      <div>
+                        <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          Notes for the Client{" "}
+                          <span className="font-normal lowercase">
+                            — optional
+                          </span>
+                        </label>
+                        <textarea
+                          name="notes"
+                          rows={3}
+                          maxLength={2000}
+                          placeholder="Summary of completed milestones, test credentials, or instructions..."
+                          className="w-full rounded-lg border border-input bg-background p-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                        />
                       </div>
-                    )}
 
-                    {task.status === "completed" && (
-                      <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 text-xs text-emerald-900">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                        <span>This task is complete! Escrow funds have been released to your wallet.</span>
-                      </div>
-                    )}
+                      <button
+                        type="submit"
+                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs cursor-pointer"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        Submit work for review
+                      </button>
+                    </form>
+                  )}
 
-                    {/* Submission History Section */}
-                    {history.length > 0 && (
-                      <div className="mt-6 pt-4 border-t border-gray-200">
-                        <details className="text-xs group">
-                          <summary className="font-semibold text-gray-700 cursor-pointer hover:text-gray-900 list-none flex items-center justify-between">
-                            <span>Submission History ({history.length} versions)</span>
-                            <span className="text-gray-400 text-[11px] group-open:rotate-180 transition-transform">▼</span>
-                          </summary>
-                          <div className="mt-3">
-                            <SubmissionHistory items={history} />
-                          </div>
-                        </details>
+                  {/* Status notice: Submitted */}
+                  {t.status === "submitted" && (
+                    <div className="mt-4 flex items-center gap-2 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 p-3.5 text-xs font-medium text-purple-900 dark:text-purple-300">
+                      <FileCheck2 className="h-4 w-4 shrink-0 text-purple-600 dark:text-purple-400" />
+                      <span>
+                        Your work has been submitted! It is currently under
+                        review by the client.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Status notice: Completed */}
+                  {t.status === "completed" && (
+                    <div className="mt-4 flex items-center gap-2 rounded-lg border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/30 p-3.5 text-xs font-medium text-teal-900 dark:text-teal-300">
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-teal-600 dark:text-teal-400" />
+                      <span>
+                        The client approved your deliverables and released the
+                        escrow reward to your wallet!
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Submission history accordion */}
+                  {history.length > 0 && (
+                    <details className="mt-4 group">
+                      <summary className="cursor-pointer text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors">
+                        <History className="h-3.5 w-3.5" />
+                        <span>Submission history ({history.length})</span>
+                      </summary>
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <SubmissionHistory items={history} />
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </details>
+                  )}
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
       </div>
-    </div>
+    </main>
   );
 }

@@ -7,11 +7,9 @@ import {
   Briefcase,
   ExternalLink,
   AlertCircle,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Trash2,
+  Trash2
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`;
 
@@ -21,10 +19,22 @@ function one<T>(value: T | T[] | null | undefined): T | null {
 }
 
 const APP_STATUS: Record<string, { label: string; className: string }> = {
-  pending: { label: "Pending Review", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  accepted: { label: "Accepted 🎉", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  rejected: { label: "Not Selected", className: "bg-gray-100 text-gray-500 border-gray-200" },
-  withdrawn: { label: "Withdrawn", className: "bg-gray-100 text-gray-400 border-gray-200" },
+  pending: {
+    label: "Pending Review",
+    className: "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+  },
+  accepted: {
+    label: "Selected & Assigned 🎉",
+    className: "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800"
+  },
+  rejected: {
+    label: "Not Selected",
+    className: "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700"
+  },
+  withdrawn: {
+    label: "Withdrawn",
+    className: "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700"
+  },
 };
 
 export default async function ApplicationsPage({
@@ -49,56 +59,59 @@ export default async function ApplicationsPage({
   const list = applications ?? [];
 
   return (
-    <div className="min-h-screen bg-gray-50/50 py-8 px-6">
+    <div className="min-h-screen bg-background text-foreground py-8 px-6">
       <div className="mx-auto max-w-4xl space-y-6">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back to dashboard</span>
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to Dashboard</span>
+          </Link>
+          <ThemeToggle />
+        </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-200 pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-6">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              My Task Applications
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+              My Task Pitches &amp; Bids
             </h1>
-            <p className="mt-1 text-xs text-gray-500">
-              Track the status of your task bids and pitch messages.
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
+              Monitor the evaluation status of your proposals submitted across marketplace tasks.
             </p>
           </div>
           <Link
             href="/marketplace"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors self-start sm:self-auto"
+            className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors self-start sm:self-auto shrink-0"
           >
             <span>Browse More Tasks</span>
           </Link>
         </div>
 
         {error && (
-          <div className="flex items-center gap-2.5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700 shadow-sm">
+          <div className="flex items-center gap-2.5 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 p-4 text-xs font-medium text-red-700 dark:text-red-400">
             <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
             <span>{error}</span>
           </div>
         )}
 
         {list.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white p-12 text-center shadow-sm">
-            <Briefcase className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-            <h3 className="text-sm font-semibold text-gray-900">No applications submitted yet</h3>
-            <p className="mt-1 text-xs text-gray-500 max-w-sm mx-auto">
-              Find open tasks in the marketplace that match your skillset and submit an application.
+          <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center space-y-3">
+            <Briefcase className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-60" />
+            <h3 className="text-sm font-bold text-foreground">No pitches submitted yet</h3>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              Find open tasks in the marketplace that match your skillset and submit your proposal.
             </p>
             <Link
               href="/marketplace"
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-700 transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors shadow-xs"
             >
               Explore Marketplace
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             {list.map((a) => {
               const task = one<{
                 id: string;
@@ -108,28 +121,28 @@ export default async function ApplicationsPage({
               }>(a.tasks as any);
               const statusCfg = APP_STATUS[a.status] ?? {
                 label: a.status,
-                className: "bg-gray-100 text-gray-700 border-gray-200",
+                className: "bg-slate-100 text-slate-700 border-slate-200",
               };
 
               return (
                 <div
                   key={a.id}
-                  className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm space-y-3"
+                  className="rounded-xl border border-border bg-card p-5 shadow-xs space-y-3 transition-colors hover:border-slate-300 dark:hover:border-slate-700"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div>
                       {task ? (
                         <Link
                           href={`/marketplace/${task.id}`}
-                          className="text-base font-bold text-gray-900 hover:text-emerald-600 transition-colors inline-flex items-center gap-1"
+                          className="text-base font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors inline-flex items-center gap-1.5"
                         >
                           <span>{task.title}</span>
-                          <ExternalLink className="h-3 w-3 text-gray-400" />
+                          <ExternalLink className="h-3 w-3 text-muted-foreground" />
                         </Link>
                       ) : (
-                        <p className="text-sm font-medium text-gray-500">Task no longer available</p>
+                        <p className="text-sm font-medium text-muted-foreground">Task no longer available</p>
                       )}
-                      <p className="mt-0.5 text-xs text-gray-400">
+                      <p className="mt-0.5 text-[11px] text-muted-foreground font-mono">
                         Applied on {new Date(a.created_at).toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "short",
@@ -140,23 +153,23 @@ export default async function ApplicationsPage({
 
                     <div className="shrink-0 text-left sm:text-right">
                       {task && (
-                        <span className="text-base font-bold font-mono tabular-nums text-emerald-600 block">
+                        <span className="text-base font-bold font-mono text-teal-600 dark:text-teal-400 block">
                           {inr(task.reward_amount)}
                         </span>
                       )}
                       <span
-                        className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-semibold mt-0.5 ${statusCfg.className}`}
+                        className={`inline-block rounded-md border px-2.5 py-0.5 text-[10px] font-semibold mt-1 ${statusCfg.className}`}
                       >
                         {statusCfg.label}
                       </span>
                     </div>
                   </div>
 
-                  <div className="rounded-xl bg-gray-50/80 border border-gray-100 p-3.5">
-                    <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-border p-3.5">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
                       Your Application Pitch:
                     </p>
-                    <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-xs text-foreground/90 whitespace-pre-wrap leading-relaxed">
                       {a.message}
                     </p>
                   </div>
@@ -165,7 +178,7 @@ export default async function ApplicationsPage({
                     <div className="pt-2 flex justify-end">
                       <form action={withdrawApplication}>
                         <input type="hidden" name="applicationId" value={a.id} />
-                        <button className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 hover:underline">
+                        <button className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400 hover:underline cursor-pointer">
                           <Trash2 className="h-3 w-3" />
                           <span>Withdraw Application</span>
                         </button>

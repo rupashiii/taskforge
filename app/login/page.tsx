@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { AlertCircle, Zap, Mail, Lock } from "lucide-react";
+import { Layers, ArrowRight, Loader2 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,96 +38,95 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-b from-gray-50 to-white">
-      <div className="w-full max-w-md space-y-8">
-        {/* Logo */}
-        <div className="flex flex-col items-center gap-3">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="h-9 w-9 rounded-lg bg-emerald-600 flex items-center justify-center shadow-sm">
-              <Zap className="h-4.5 w-4.5 text-white" />
+    <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-background text-foreground">
+      <div className="absolute top-6 right-6">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center space-y-2">
+          <Link href="/" className="inline-flex items-center gap-2 group">
+            <div className="h-8 w-8 rounded-md bg-blue-600 flex items-center justify-center text-white shadow-xs group-hover:bg-blue-700 transition-colors">
+              <Layers className="h-4 w-4" />
             </div>
-            <span className="text-xl font-bold text-gray-900 group-hover:text-emerald-600 transition-colors">
-              TaskForge
+            <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+              Task<span className="text-blue-600 dark:text-blue-400">Forge</span>
             </span>
           </Link>
+          <p className="text-xs text-muted-foreground">Sign in to your client or freelancer workspace</p>
         </div>
 
-        {/* Card */}
         <form
           onSubmit={handleLogin}
-          className="w-full space-y-6 rounded-2xl border border-gray-100 bg-white p-8 shadow-lg"
+          className="space-y-4 rounded-xl border border-border bg-card p-6 shadow-xs"
         >
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-            <p className="text-sm text-gray-500">Log in to your account</p>
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white">Welcome back</h1>
+            <p className="mt-0.5 text-xs text-muted-foreground">Enter your credentials to continue</p>
           </div>
 
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Email address
+          <div className="space-y-3.5 pt-1">
+            <div>
+              <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Email Address
               </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                />
-              </div>
+              <input
+                id="email"
+                type="email"
+                required
+                placeholder="you@domain.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-400 transition-colors"
+              />
             </div>
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-4 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                />
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Password
+                </label>
               </div>
+              <input
+                id="password"
+                type="password"
+                required
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-400 transition-colors"
+              />
             </div>
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
-              <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="rounded-md border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 p-3 text-xs font-medium text-red-700 dark:text-red-400">
+              {error}
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
-            {loading ? "Logging in..." : "Log in"}
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Signing in…</span>
+              </>
+            ) : (
+              <>
+                <span>Sign In</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </>
+            )}
           </button>
 
-          <p className="text-center text-sm text-gray-500">
-            New here?{" "}
-            <Link
-              href="/signup"
-              className="font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
-            >
-              Create an account
+          <p className="text-center text-xs text-muted-foreground pt-1">
+            Don&apos;t have an account?{" "}
+            <Link href="/signup" className="font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+              Create account
             </Link>
           </p>
         </form>

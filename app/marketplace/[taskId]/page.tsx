@@ -4,17 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { applyToTask } from "../actions";
 import {
   ArrowLeft,
-  Briefcase,
   CheckCircle2,
   Calendar,
   Clock,
-  Layers,
   Send,
-  AlertCircle,
   ExternalLink,
-  User,
-  Shield,
+  Lock
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`;
 
@@ -24,10 +21,22 @@ function one<T>(value: T | T[] | null | undefined): T | null {
 }
 
 const APP_STATUS: Record<string, { label: string; className: string }> = {
-  pending: { label: "Pending Review", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  accepted: { label: "Accepted 🎉", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  rejected: { label: "Not Selected", className: "bg-gray-100 text-gray-500 border-gray-200" },
-  withdrawn: { label: "Withdrawn", className: "bg-gray-100 text-gray-400 border-gray-200" },
+  pending: {
+    label: "Pending Review",
+    className: "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+  },
+  accepted: {
+    label: "Selected & Assigned 🎉",
+    className: "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800"
+  },
+  rejected: {
+    label: "Not Selected",
+    className: "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700"
+  },
+  withdrawn: {
+    label: "Withdrawn",
+    className: "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700"
+  },
 };
 
 export default async function TaskDetailPage({
@@ -98,91 +107,97 @@ export default async function TaskDetailPage({
   const criteria: string[] = task.acceptance_criteria ?? [];
 
   return (
-    <div className="min-h-screen bg-gray-50/50 py-8 px-6">
+    <div className="min-h-screen bg-background text-foreground py-8 px-6">
       <div className="mx-auto max-w-4xl space-y-6">
-        <Link
-          href="/marketplace"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back to marketplace</span>
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link
+            href="/marketplace"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to Marketplace</span>
+          </Link>
+          <ThemeToggle />
+        </div>
 
-        {/* Task Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 border-b border-gray-200 pb-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-6 border-b border-border">
           <div>
-            <span className="text-xs font-medium text-gray-400">
-              Project: {project?.title ?? "Project"} · Posted by {clientName}
-            </span>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900 mt-1">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                {project?.title ?? "Project"} · Client: {clientName}
+              </span>
+              <span className="rounded-full bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-900 px-2 py-0.2 text-[10px] font-bold text-teal-700 dark:text-teal-300 inline-flex items-center gap-1">
+                <Lock className="h-2.5 w-2.5" /> Escrow Locked
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
               {task.title}
             </h1>
           </div>
-
-          <div className="text-left sm:text-right">
-            <span className="text-[11px] uppercase font-semibold text-gray-400 block">
-              Escrow Guaranteed Reward
-            </span>
-            <span className="text-3xl font-bold font-mono tabular-nums text-emerald-600">
+          <div className="text-left sm:text-right shrink-0">
+            <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+              Guaranteed Milestone Reward
+            </p>
+            <p className="text-3xl font-extrabold font-mono text-teal-600 dark:text-teal-400">
               {inr(task.reward_amount)}
-            </span>
+            </p>
           </div>
         </div>
 
         {error && (
-          <div className="flex items-center gap-2.5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700 shadow-sm">
-            <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
-            <span>{error}</span>
+          <div className="rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 p-3.5 text-xs font-medium text-red-700 dark:text-red-400">
+            {error}
           </div>
         )}
 
-        {/* Task Meta Pills */}
+        {/* Meta Pills */}
         <div className="flex flex-wrap items-center gap-2">
           {skills.map((s) => (
             <span
               key={s}
-              className="rounded-lg bg-white border border-gray-200 px-3 py-1 text-xs font-medium text-gray-700 shadow-xs"
+              className="rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-300"
             >
               {s}
             </span>
           ))}
-          <span className="rounded-lg bg-gray-100 px-3 py-1 text-xs text-gray-600">
+          <span className="rounded-md border border-border bg-card px-2 py-0.5 text-xs font-medium text-foreground">
             Complexity {task.complexity}/5
           </span>
           {task.estimated_hours && (
-            <span className="rounded-lg bg-gray-100 px-3 py-1 text-xs text-gray-600 flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              ~{task.estimated_hours} hours
+            <span className="rounded-md border border-border bg-card px-2 py-0.5 text-xs font-medium text-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3 text-muted-foreground" />
+              ~{task.estimated_hours}h estimated
             </span>
           )}
           {task.deadline && (
-            <span className="rounded-lg bg-gray-100 px-3 py-1 text-xs text-gray-600 flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              Due {new Date(task.deadline).toLocaleDateString("en-IN")}
+            <span className="rounded-md border border-border bg-card px-2 py-0.5 text-xs font-medium text-foreground flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-muted-foreground" />
+              Target: {new Date(task.deadline).toLocaleDateString("en-IN")}
             </span>
           )}
         </div>
 
-        {/* Description Card */}
-        <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm space-y-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-            Task Description
+        {/* Description */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-2 shadow-xs">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Deliverable Specification
           </h2>
-          <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+          <p className="text-xs sm:text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
             {task.description}
           </p>
         </div>
 
-        {/* Acceptance Criteria */}
+        {/* Acceptance criteria */}
         {criteria.length > 0 && (
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Deliverable Acceptance Criteria
+          <div className="rounded-xl border border-border bg-card p-6 space-y-3 shadow-xs">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Required Acceptance Criteria
             </h2>
-            <ul className="space-y-2 text-xs text-gray-700">
+            <ul className="space-y-2 text-xs sm:text-sm text-foreground/90">
               {criteria.map((c, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <li key={i} className="flex items-start gap-2.5">
+                  <CheckCircle2 className="h-4 w-4 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
                   <span>{c}</span>
                 </li>
               ))}
@@ -190,64 +205,62 @@ export default async function TaskDetailPage({
           </div>
         )}
 
-        {/* Project Context */}
+        {/* Project context */}
         {project?.description && (
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm space-y-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              About the Project
+          <div className="rounded-xl border border-border bg-card p-6 space-y-2 shadow-xs">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              About the Parent Project
             </h2>
-            <p className="text-xs text-gray-600 whitespace-pre-wrap leading-relaxed">
+            <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
               {project.description}
             </p>
           </div>
         )}
 
-        {/* Application Card */}
-        <div className="rounded-2xl border-2 border-emerald-600 bg-white p-6 shadow-sm space-y-4">
+        {/* Application Section */}
+        <div className="rounded-xl border border-border bg-card p-6 space-y-4 shadow-xs">
           {!isFreelancer ? (
-            <div className="text-xs text-gray-500">
-              You are signed in as a client. Only freelancer accounts can apply to marketplace tasks.
-            </div>
+            <p className="text-xs text-muted-foreground">
+              You are signed in as a client. Only freelancer accounts can submit task proposals.
+            </p>
           ) : !isOpen ? (
-            <div className="text-xs text-gray-500">
-              This task is no longer open for new applications.
-            </div>
+            <p className="text-xs text-muted-foreground">
+              This task is currently in <strong className="capitalize">{task.status.replace("_", " ")}</strong> status and is no longer accepting new proposals.
+            </p>
           ) : isOverdue ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-xs text-amber-900 space-y-1">
-              <p className="font-bold flex items-center gap-1.5 text-amber-900 text-sm">
-                <Clock className="h-4 w-4 text-amber-600" />
-                <span>Deadline Expired — Applications Closed</span>
+            <div className="rounded-lg border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 p-4 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+              <p className="font-bold flex items-center gap-1.5">
+                <Clock className="h-4 w-4" />
+                Target deadline expired — applications closed
               </p>
-              <p className="text-xs text-amber-800 leading-relaxed">
+              <p className="text-amber-800/80 dark:text-amber-300/80">
                 The deadline for this task expired on{" "}
-                <span className="font-semibold underline">
+                <span className="font-bold">
                   {new Date(task.deadline).toLocaleDateString("en-IN")}
                 </span>
-                . Applications are currently closed until the client chooses to extend the deadline.
+                . Applications will reopen if the client extends the deadline.
               </p>
             </div>
           ) : myApplication && myApplication.status !== "withdrawn" ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-900">
-                  Your Application Status
-                </span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white">Your Submitted Proposal</span>
                 <span
-                  className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                    APP_STATUS[myApplication.status]?.className ?? "bg-gray-100"
+                  className={`rounded-md border px-2.5 py-0.5 text-xs font-semibold ${
+                    APP_STATUS[myApplication.status]?.className ?? "bg-slate-100"
                   }`}
                 >
                   {APP_STATUS[myApplication.status]?.label ?? myApplication.status}
                 </span>
               </div>
-              <div className="rounded-xl bg-gray-50 p-3.5 text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-border p-4 text-xs sm:text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
                 {myApplication.message}
               </div>
               <Link
                 href="/applications"
-                className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
               >
-                <span>View all my applications</span>
+                View all your pitches
                 <ExternalLink className="h-3 w-3" />
               </Link>
             </div>
@@ -256,9 +269,9 @@ export default async function TaskDetailPage({
               <form action={applyToTask} className="space-y-4">
                 <input type="hidden" name="taskId" value={task.id} />
                 <div>
-                  <h2 className="text-base font-bold text-gray-900">Apply for This Task</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Describe your relevant experience, portfolio links, and estimated completion timeline.
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">Pitch on This Task</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Describe your relevant experience, proposed approach, and delivery timeline. Your attached resume will be visible to the client.
                   </p>
                 </div>
 
@@ -268,20 +281,18 @@ export default async function TaskDetailPage({
                   rows={4}
                   minLength={20}
                   maxLength={1000}
-                  placeholder="Explain why you are the best fit for this task. Include any questions or how you plan to tackle the acceptance criteria."
-                  className="w-full rounded-xl border border-gray-200 p-4 text-xs leading-relaxed outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                  placeholder="Why are you the best fit? Highlight relevant projects, questions about the acceptance criteria, or your implementation approach..."
+                  className="w-full rounded-md border border-input bg-background p-3 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground leading-relaxed outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-400 transition-colors"
                 />
 
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-gray-400">
-                    Min 20 characters · Max 1000 characters
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                  <span className="text-[11px] text-muted-foreground font-mono">20–1000 characters required</span>
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors cursor-pointer"
                   >
                     <Send className="h-3.5 w-3.5" />
-                    <span>Submit Application</span>
+                    Submit Proposal
                   </button>
                 </div>
               </form>

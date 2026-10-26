@@ -21,7 +21,13 @@ export async function createProject(formData: FormData) {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "client") redirect("/dashboard");
+  let role = profile?.role;
+  if (role !== "client" && user.user_metadata?.role === "client") {
+    role = "client";
+    await supabase.from("profiles").update({ role: "client" }).eq("id", user.id);
+  }
+
+  if (role !== "client") redirect("/dashboard");
 
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();

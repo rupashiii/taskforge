@@ -2,49 +2,80 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import TaskFields from "./task-fields";
-import {
-  addTask,
-  deleteTask,
-  publishProject,
-  reclaimOverdueTask,
-  cancelAndRefundOpenTask,
-  extendTaskDeadline,
-} from "./task-actions";
-import {
-  ArrowLeft,
-  Briefcase,
-  Plus,
-  Trash2,
-  Edit,
-  Shield,
-  Clock,
-  AlertCircle,
-  CheckCircle2,
-  Calendar,
-  Users,
-  Eye,
-  ArrowRight,
-  Sparkles,
-  RotateCcw,
-} from "lucide-react";
+import { addTask, deleteTask, publishProject } from "./task-actions";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationBell } from "@/components/NotificationBell";
+import { ArrowLeft, Users, Layers, Wallet, FileCheck2 } from "lucide-react";
 
 const PROJECT_STATUS: Record<string, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-gray-100 text-gray-700 border-gray-200" },
-  breakdown_ready: { label: "Breakdown Ready", className: "bg-blue-50 text-blue-700 border-blue-200" },
-  published: { label: "Published & Active", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  completed: { label: "Completed", className: "bg-purple-50 text-purple-700 border-purple-200" },
-  cancelled: { label: "Cancelled", className: "bg-red-50 text-red-600 border-red-200" },
+  draft: {
+    label: "Draft",
+    className:
+      "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700",
+  },
+  breakdown_ready: {
+    label: "Breakdown ready",
+    className:
+      "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+  },
+  published: {
+    label: "Published",
+    className:
+      "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800",
+  },
+  completed: {
+    label: "Completed",
+    className:
+      "bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
+  },
+  cancelled: {
+    label: "Cancelled",
+    className:
+      "bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800",
+  },
 };
 
 const TASK_STATUS: Record<string, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-gray-100 text-gray-700 border-gray-200" },
-  open: { label: "Open for Applications", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  assigned: { label: "Assigned", className: "bg-blue-50 text-blue-700 border-blue-200" },
-  in_progress: { label: "In Progress", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  submitted: { label: "Ready for Review", className: "bg-purple-50 text-purple-700 border-purple-200" },
-  revision_requested: { label: "Revision Requested", className: "bg-orange-50 text-orange-700 border-orange-200" },
-  completed: { label: "Completed", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  cancelled: { label: "Cancelled", className: "bg-gray-100 text-gray-500 border-gray-200" },
+  draft: {
+    label: "Draft",
+    className:
+      "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700",
+  },
+  open: {
+    label: "Open",
+    className:
+      "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+  },
+  assigned: {
+    label: "Assigned",
+    className:
+      "bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+  },
+  in_progress: {
+    label: "In progress",
+    className:
+      "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+  },
+  submitted: {
+    label: "Submitted",
+    className:
+      "bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+  },
+  revision_requested: {
+    label: "Revision requested",
+    className:
+      "bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800",
+  },
+  completed: {
+    label: "Completed",
+    className:
+      "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800",
+  },
+  cancelled: {
+    label: "Cancelled",
+    className:
+      "bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800",
+  },
 };
 
 const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`;
@@ -67,7 +98,9 @@ export default async function ProjectPage({
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, title, description, status, total_budget, created_at, client_id")
+    .select(
+      "id, title, description, status, total_budget, created_at, client_id"
+    )
     .eq("id", id)
     .single();
 
@@ -84,6 +117,7 @@ export default async function ProjectPage({
   const taskList = tasks ?? [];
   const isDraft = project.status === "draft";
 
+  // Applicant counts per task
   const taskIds = taskList.map((t) => t.id);
   const { data: apps } = taskIds.length
     ? await supabase
@@ -99,12 +133,16 @@ export default async function ProjectPage({
     }
   }
 
+  // Names of assigned freelancers
   const assignedIds = taskList
     .map((t) => t.assigned_to)
     .filter((v): v is string => Boolean(v));
 
   const { data: people } = assignedIds.length
-    ? await supabase.from("profiles").select("id, full_name").in("id", assignedIds)
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", assignedIds)
     : { data: [] };
 
   const nameById = new Map<string, string>(
@@ -118,403 +156,301 @@ export default async function ProjectPage({
   const budget = Number(project.total_budget ?? 0);
   const overBudget = budget > 0 && totalReward > budget;
 
-  const statusCfg = PROJECT_STATUS[project.status] ?? {
+  const pst = PROJECT_STATUS[project.status] ?? {
     label: project.status,
-    className: "bg-gray-100 text-gray-700 border-gray-200",
+    className: "bg-muted text-muted-foreground border-border",
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 py-8 px-6">
-      <div className="mx-auto max-w-4xl space-y-6">
+    <main className="min-h-screen bg-background text-foreground transition-colors">
+      {/* Header */}
+      <header className="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
+          <Link
+            href="/dashboard"
+            className="text-xl font-bold tracking-tight text-foreground"
+          >
+            Task<span className="text-primary">Forge</span>
+          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <NotificationBell userId={user.id} />
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-4xl px-6 py-8">
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back to dashboard</span>
+          Back to dashboard
         </Link>
 
-        {/* Project Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 border-b border-gray-200 pb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className={`rounded-full border px-3 py-0.5 text-xs font-semibold ${statusCfg.className}`}
-              >
-                {statusCfg.label}
-              </span>
-              <span className="text-xs text-gray-400">
-                Created {new Date(project.created_at).toLocaleDateString("en-IN")}
-              </span>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">{project.title}</h1>
-          </div>
-
-          <div className="text-left sm:text-right">
-            <span className="text-[11px] uppercase font-semibold text-gray-400 block">
-              Max Cap Budget
-            </span>
-            <span className="text-xl font-bold font-mono tabular-nums text-gray-900">
-              {budget > 0 ? inr(budget) : "No Limit"}
-            </span>
-          </div>
+        <div className="mt-4 flex items-start justify-between gap-4">
+          <h1 className="text-2xl font-bold text-foreground">
+            {project.title}
+          </h1>
+          <span
+            className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${pst.className}`}
+          >
+            {pst.label}
+          </span>
         </div>
+
+        <p className="mt-1 text-sm text-muted-foreground">
+          Created {new Date(project.created_at).toLocaleDateString("en-IN")}
+          {budget > 0 && ` · Budget up to ${inr(budget)}`}
+        </p>
 
         {error && (
-          <div className="flex items-center gap-2.5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700 shadow-sm">
-            <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
-            <span>{error}</span>
-          </div>
+          <p className="mt-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-700 dark:text-red-300">
+            {error}
+          </p>
         )}
 
-        {/* Project Requirements */}
-        <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
-            Project Scope & Requirements
+        <section className="mt-6 rounded-xl border border-border bg-card p-6">
+          <h2 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Requirements
           </h2>
-          <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">
+          <p className="mt-3 whitespace-pre-wrap text-foreground">
             {project.description}
           </p>
-        </div>
+        </section>
 
-        {/* Financial & Task Summary Cards */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm text-center">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              Tasks
-            </span>
-            <p className="mt-1 text-2xl font-bold font-mono text-gray-900">{taskList.length}</p>
+        {/* Summary */}
+        <section className="mt-6 grid grid-cols-3 gap-4">
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-1.5">
+              <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Tasks
+              </p>
+            </div>
+            <p className="mt-1 text-2xl font-bold text-foreground">
+              {taskList.length}
+            </p>
           </div>
-
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm text-center">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              Total Rewards
-            </span>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-1.5">
+              <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Total rewards
+              </p>
+            </div>
             <p
-              className={`mt-1 text-2xl font-bold font-mono tabular-nums ${
-                overBudget ? "text-red-600" : "text-emerald-600"
+              className={`mt-1 text-2xl font-bold ${
+                overBudget
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-foreground"
               }`}
             >
               {inr(totalReward)}
             </p>
           </div>
-
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm text-center">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              Allocated Budget
-            </span>
-            <p className="mt-1 text-2xl font-bold font-mono tabular-nums text-gray-900">
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-1.5">
+              <Wallet className="h-3.5 w-3.5 text-muted-foreground" />
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Budget
+              </p>
+            </div>
+            <p className="mt-1 text-2xl font-bold text-foreground">
               {budget > 0 ? inr(budget) : "—"}
             </p>
           </div>
-        </div>
+        </section>
 
         {overBudget && (
-          <div className="flex items-center gap-2.5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700 shadow-sm">
-            <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
-            <span>
-              Total task rewards exceed your budget ({inr(totalReward)} &gt; {inr(budget)}). Reduce individual rewards or delete tasks before publishing.
-            </span>
-          </div>
+          <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+            Total rewards are above your budget. Reduce rewards or remove tasks
+            before publishing.
+          </p>
         )}
 
-        {/* Tasks Section */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-gray-900">
-              Project Tasks ({taskList.length})
-            </h2>
-            {isDraft && (
-              <span className="text-xs text-gray-400">
-                Draft phase · Edit and re-order freely
-              </span>
-            )}
-          </div>
+        {/* Task list */}
+        <section className="mt-6">
+          <h2 className="text-xl font-bold text-foreground">Tasks</h2>
 
           {taskList.length === 0 ? (
-            <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white p-8 text-center text-xs text-gray-500">
-              No tasks added yet. Add tasks below to split the project into funded milestones.
-            </div>
+            <p className="mt-3 text-muted-foreground">
+              No tasks yet. Add your first task below.
+            </p>
           ) : (
-            <div className="space-y-3">
-              {taskList.map((t, idx) => {
+            <ul className="mt-4 space-y-3">
+              {taskList.map((t, i) => {
                 const pending = pendingByTask.get(t.id) ?? 0;
-                const assignee = t.assigned_to ? nameById.get(t.assigned_to) : null;
-                const isOverdue =
-                  t.deadline &&
-                  ["assigned", "in_progress", "revision_requested"].includes(t.status)
-                    ? new Date(t.deadline).setHours(23, 59, 59, 999) < Date.now()
-                    : false;
-                const isOpenExpired =
-                  t.status === "open" &&
-                  t.deadline &&
-                  new Date(t.deadline).setHours(23, 59, 59, 999) < Date.now();
-                const taskStatusCfg = TASK_STATUS[t.status] ?? {
+                const assignee = t.assigned_to
+                  ? nameById.get(t.assigned_to)
+                  : null;
+                const tst = TASK_STATUS[t.status] ?? {
                   label: t.status,
-                  className: "bg-gray-100 text-gray-700 border-gray-200",
+                  className:
+                    "bg-muted text-muted-foreground border-border",
                 };
 
                 return (
-                  <div
+                  <li
                     key={t.id}
-                    className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm space-y-3"
+                    className="rounded-xl border border-border bg-card p-5"
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-600">
-                            {idx + 1}
-                          </span>
-                          <h3 className="font-semibold text-gray-900">{t.title}</h3>
-                        </div>
-                        <p className="mt-1 text-xs text-gray-600 leading-relaxed whitespace-pre-wrap pl-7">
+                        <p className="font-semibold text-foreground">
+                          {i + 1}. {t.title}
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
                           {t.description}
                         </p>
                       </div>
-
-                      <div className="shrink-0 text-left sm:text-right pl-7 sm:pl-0">
-                        <span className="text-base font-bold font-mono tabular-nums text-emerald-600 block">
+                      <div className="shrink-0 text-right">
+                        <p className="text-lg font-bold text-foreground">
                           {inr(t.reward_amount)}
+                        </p>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-xs font-medium ${tst.className}`}
+                        >
+                          {tst.label}
                         </span>
-                        <div className="flex items-center gap-1.5 justify-start sm:justify-end mt-0.5">
-                          <span
-                            className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${taskStatusCfg.className}`}
-                          >
-                            {taskStatusCfg.label}
-                          </span>
-                          {isOverdue && (
-                            <span className="inline-block rounded-full bg-red-100 border border-red-200 px-2.5 py-0.5 text-[10px] font-bold text-red-700 animate-pulse">
-                              Overdue
-                            </span>
-                          )}
-                          {isOpenExpired && (
-                            <span className="inline-block rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-[10px] font-bold text-amber-800">
-                              Expired (Unassigned)
-                            </span>
-                          )}
-                        </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 pl-7 text-xs text-gray-500">
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       {t.skills_required?.map((s: string) => (
                         <span
                           key={s}
-                          className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600"
+                          className="rounded-full border border-border px-2.5 py-0.5"
                         >
                           {s}
                         </span>
                       ))}
                       <span>Complexity {t.complexity}/5</span>
-                      {t.estimated_hours && <span>· {t.estimated_hours}h est.</span>}
+                      {t.estimated_hours && (
+                        <span>· {t.estimated_hours} h</span>
+                      )}
                       {t.deadline && (
-                        <span>· Due {new Date(t.deadline).toLocaleDateString("en-IN")}</span>
+                        <span>
+                          · Due{" "}
+                          {new Date(t.deadline).toLocaleDateString("en-IN")}
+                        </span>
                       )}
                     </div>
 
-                    {/* Actions Row */}
-                    <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2 pl-7 text-xs">
-                      {isDraft ? (
-                        <>
+                    {isDraft ? (
+                      <div className="mt-4 flex gap-3">
+                        <Link
+                          href={`/projects/${id}/tasks/${t.id}/edit`}
+                          className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted transition-colors"
+                        >
+                          Edit
+                        </Link>
+                        <form action={deleteTask}>
+                          <input
+                            type="hidden"
+                            name="projectId"
+                            value={id}
+                          />
+                          <input
+                            type="hidden"
+                            name="taskId"
+                            value={t.id}
+                          />
+                          <button className="rounded-lg border border-red-200 dark:border-red-800 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer">
+                            Delete
+                          </button>
+                        </form>
+                      </div>
+                    ) : (
+                      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+                        {assignee && (
+                          <span className="rounded-full border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/30 px-3 py-1 text-teal-800 dark:text-teal-300 text-xs font-medium">
+                            Assigned to {assignee}
+                          </span>
+                        )}
+                        <Link
+                          href={`/projects/${id}/tasks/${t.id}/applicants`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-foreground hover:bg-muted transition-colors"
+                        >
+                          <Users className="h-3.5 w-3.5" />
+                          {t.status === "open"
+                            ? `View applicants${
+                                pending > 0 ? ` (${pending} pending)` : ""
+                              }`
+                            : "View applicants"}
+                        </Link>
+                        {["submitted", "revision_requested", "completed"].includes(t.status) && (
                           <Link
-                            href={`/projects/${id}/tasks/${t.id}/edit`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                            href={`/projects/${id}/tasks/${t.id}/review`}
+                            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-medium transition-colors ${
+                              t.status === "submitted"
+                                ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+                                : "border-border text-foreground hover:bg-muted"
+                            }`}
                           >
-                            <Edit className="h-3 w-3" />
-                            <span>Edit</span>
+                            <FileCheck2 className="h-3.5 w-3.5" />
+                            {t.status === "submitted"
+                              ? "Review submission"
+                              : "View submissions"}
                           </Link>
-                          <form action={deleteTask}>
-                            <input type="hidden" name="projectId" value={id} />
-                            <input type="hidden" name="taskId" value={t.id} />
-                            <button className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 font-medium text-red-600 hover:bg-red-50 transition-colors">
-                              <Trash2 className="h-3 w-3" />
-                              <span>Delete</span>
-                            </button>
-                          </form>
-                        </>
-                      ) : (
-                        <>
-                          {["submitted", "revision_requested", "completed"].includes(t.status) && (
-                            <Link
-                              href={`/projects/${id}/tasks/${t.id}/review`}
-                              className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                                t.status === "submitted"
-                                  ? "bg-purple-600 text-white hover:bg-purple-700 shadow-sm"
-                                  : "border border-gray-200 text-gray-700 hover:bg-gray-50"
-                              }`}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              <span>
-                                {t.status === "submitted" ? "Review Submission 🚀" : "View Submission"}
-                              </span>
-                            </Link>
-                          )}
-                          {assignee && (
-                            <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700">
-                              Assigned to {assignee}
-                            </span>
-                          )}
-                          <Link
-                            href={`/projects/${id}/tasks/${t.id}/applicants`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                          >
-                            <Users className="h-3.5 w-3.5 text-gray-500" />
-                            <span>
-                              {t.status === "open"
-                                ? `View Applicants${pending > 0 ? ` (${pending} pending)` : ""}`
-                                : "View Applicants"}
-                            </span>
-                          </Link>
-
-                          {isOverdue && (
-                            <form action={reclaimOverdueTask} className="inline-block">
-                              <input type="hidden" name="projectId" value={id} />
-                              <input type="hidden" name="taskId" value={t.id} />
-                              <button
-                                type="submit"
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors shadow-xs"
-                                title="The freelancer missed the deadline. Reclaim this task to re-open it on the marketplace."
-                              >
-                                <RotateCcw className="h-3 w-3" />
-                                <span>Reclaim &amp; Reopen Task</span>
-                              </button>
-                            </form>
-                          )}
-
-                          {isOpenExpired && (
-                            <div className="flex flex-wrap items-center gap-2">
-                              {/* Extend Deadline Details Form */}
-                              <details className="relative inline-block group">
-                                <summary className="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer list-none">
-                                  <Calendar className="h-3.5 w-3.5" />
-                                  <span>Extend Deadline</span>
-                                </summary>
-                                <div className="absolute left-0 mt-2 p-3 bg-white border border-gray-200 rounded-xl shadow-xl z-30 w-72 space-y-2">
-                                  <form action={extendTaskDeadline} className="space-y-2">
-                                    <input type="hidden" name="projectId" value={id} />
-                                    <input type="hidden" name="taskId" value={t.id} />
-                                    <label className="block text-[11px] font-semibold text-gray-700">
-                                      Select New Target Deadline:
-                                    </label>
-                                    <input
-                                      type="date"
-                                      name="newDeadline"
-                                      required
-                                      min={new Date().toISOString().split("T")[0]}
-                                      className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-                                    />
-                                    <button
-                                      type="submit"
-                                      className="w-full rounded-lg bg-emerald-600 text-white font-medium py-1.5 text-xs hover:bg-emerald-700 transition-colors"
-                                    >
-                                      Save &amp; Reopen Applications
-                                    </button>
-                                  </form>
-                                </div>
-                              </details>
-
-                              {/* Cancel & Refund Escrow */}
-                              <form action={cancelAndRefundOpenTask} className="inline-block">
-                                <input type="hidden" name="projectId" value={id} />
-                                <input type="hidden" name="taskId" value={t.id} />
-                                <button
-                                  type="submit"
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors shadow-xs"
-                                  title="Cancel this expired task and immediately refund the escrow amount to your wallet."
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                  <span>Cancel &amp; Refund ({inr(t.reward_amount)})</span>
-                                </button>
-                              </form>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
+                        )}
+                      </div>
+                    )}
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
-        </div>
+        </section>
 
-        {/* Add Task + Publish (Draft projects only) */}
+        {/* Add task + publish (draft only) */}
         {isDraft ? (
-          <div className="space-y-6">
-            {/* Add Task Collapsible Form */}
+          <>
             <details
               open={taskList.length === 0}
-              className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm group"
+              className="mt-6 rounded-xl border border-border bg-card p-6"
             >
-              <summary className="cursor-pointer text-sm font-semibold text-gray-900 list-none flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Plus className="h-4 w-4 text-emerald-600" />
-                  <span>Add a New Task</span>
-                </span>
-                <span className="text-xs text-gray-400 group-open:rotate-180 transition-transform">▼</span>
+              <summary className="cursor-pointer text-lg font-semibold text-foreground">
+                + Add a task
               </summary>
-              <form action={addTask} className="mt-5 space-y-4">
+              <form action={addTask} className="mt-5 space-y-5">
                 <input type="hidden" name="projectId" value={id} />
                 <TaskFields />
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                  className="rounded-lg bg-primary px-5 py-3 font-medium text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Task</span>
+                  Add task
                 </button>
               </form>
             </details>
 
-            {/* Publish & Fund Escrow Card */}
-            <div className="rounded-2xl border-2 border-emerald-600 bg-emerald-50/40 p-6 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
-                  <Shield className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-base font-bold text-gray-900">
-                    Ready to Publish and Fund Escrow?
-                  </h2>
-                  <p className="mt-1 text-xs text-gray-600 leading-relaxed">
-                    Publishing makes all tasks visible on the marketplace and locks{" "}
-                    <span className="font-semibold text-gray-900 font-mono">
-                      {inr(totalReward)}
-                    </span>{" "}
-                    from your wallet in escrow in one atomic transaction. Tasks cannot be edited once published.
-                  </p>
-
-                  <div className="mt-4 flex items-center gap-3">
-                    <form action={publishProject}>
-                      <input type="hidden" name="projectId" value={id} />
-                      <button
-                        disabled={taskList.length === 0 || overBudget}
-                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-40 transition-colors"
-                      >
-                        <Shield className="h-3.5 w-3.5" />
-                        <span>Publish Project &amp; Lock Escrow</span>
-                      </button>
-                    </form>
-                    <Link
-                      href="/wallet"
-                      className="text-xs font-medium text-gray-600 hover:text-gray-900 underline"
-                    >
-                      Check Wallet Balance →
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+            <section className="mt-6 rounded-xl border-2 border-primary bg-card p-6">
+              <h2 className="text-lg font-bold text-foreground">
+                Ready to publish?
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Publishing makes all tasks visible to freelancers on the
+                marketplace. You will not be able to edit tasks afterwards.
+              </p>
+              <form action={publishProject} className="mt-4">
+                <input type="hidden" name="projectId" value={id} />
+                <button
+                  disabled={taskList.length === 0}
+                  className="rounded-lg bg-primary px-5 py-3 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors cursor-pointer"
+                >
+                  Publish project
+                </button>
+              </form>
+            </section>
+          </>
         ) : (
-          <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-xs font-medium text-emerald-800 shadow-sm">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-            <span>
-              This project is live! Review incoming applicants for each task to select your freelancers.
-            </span>
-          </div>
+          <p className="mt-6 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/30 p-4 text-sm text-teal-800 dark:text-teal-300">
+            This project is published. Open each task to review applicants and
+            select a freelancer.
+          </p>
         )}
       </div>
-    </div>
+    </main>
   );
 }

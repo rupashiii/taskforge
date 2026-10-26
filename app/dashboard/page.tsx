@@ -1,29 +1,55 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { NotificationBell } from "@/components/NotificationBell";
 import { updateSkills } from "./actions";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationBell } from "@/components/NotificationBell";
+import { UpdateResumeForm } from "@/components/UpdateResumeForm";
+import { computeFreelancerRating, getFreelancerStats } from "@/lib/rating";
 import {
+  Star,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
   Briefcase,
-  Search,
-  Send,
-  CheckCircle,
-  Plus,
-  LogOut,
-  Wallet as WalletIcon,
-  Sparkles,
-  ArrowRight,
-  Clock,
-  IndianRupee,
+  Award,
+  ShieldCheck,
+  TrendingUp,
+  User,
+  Wallet,
+  Lock,
+  ArrowUpRight,
 } from "lucide-react";
 
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-gray-100 text-gray-700 border-gray-200" },
-  breakdown_ready: { label: "Breakdown Ready", className: "bg-blue-50 text-blue-700 border-blue-200" },
-  published: { label: "Published", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  completed: { label: "Completed", className: "bg-purple-50 text-purple-700 border-purple-200" },
-  cancelled: { label: "Cancelled", className: "bg-red-50 text-red-600 border-red-200" },
+const STATUS_LABEL: Record<string, { label: string; className: string }> = {
+  draft: {
+    label: "Draft",
+    className:
+      "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700",
+  },
+  breakdown_ready: {
+    label: "Breakdown ready",
+    className:
+      "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+  },
+  published: {
+    label: "Published",
+    className:
+      "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800",
+  },
+  completed: {
+    label: "Completed",
+    className:
+      "bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
+  },
+  cancelled: {
+    label: "Cancelled",
+    className:
+      "bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800",
+  },
 };
+
+const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`;
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -35,12 +61,18 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role, skills")
+    .select("full_name, role, skills, avatar_url, resume_url, rating")
     .eq("id", user.id)
     .single();
 
-  const role = profile?.role ?? "freelancer";
-  const displayName = profile?.full_name || user.email?.split("@")[0] || "User";
+  const metaRole = (user.user_metadata?.role as string) || null;
+  let role = profile?.role ?? metaRole ?? "freelancer";
+
+  // If user signed up with client metadata but profile was initialized as freelancer (or vice versa), sync them:
+  if (metaRole && profile && profile.role !== metaRole) {
+    role = metaRole;
+    await supabase.from("profiles").update({ role: metaRole }).eq("id", user.id);
+  }
 
   const { data: projects } =
     role === "client"
@@ -51,6 +83,14 @@ export default async function DashboardPage() {
           .order("created_at", { ascending: false })
       : { data: [] };
 
+  const { data: walletSummaryRaw } = await supabase.rpc("wallet_summary");
+  const walletSummary = (walletSummaryRaw ?? {}) as {
+    available?: number;
+    escrow?: number;
+    earned?: number;
+  };
+
+  // Client: pending applicants across all of their tasks (row level security limits this)
   const { count: waitingApplicants } =
     role === "client"
       ? await supabase
@@ -59,6 +99,7 @@ export default async function DashboardPage() {
           .eq("status", "pending")
       : { count: 0 };
 
+  // Freelancer counters
   const { count: openTaskCount } =
     role === "freelancer"
       ? await supabase
@@ -85,312 +126,384 @@ export default async function DashboardPage() {
           .in("status", ["assigned", "in_progress", "revision_requested"])
       : { count: 0 };
 
+  // ─── Freelancer rating data (matches /freelancers/[id] calculation) ───
+  let acceptedCount = 0;
+  let rejectedCount = 0;
+  let needsReviewCount = 0;
+  let totalTasksAssigned = 0;
+  let totalEarned = 0;
+  let dynRating = computeFreelancerRating(0, 0);
+
+  if (role === "freelancer") {
+    const stats = await getFreelancerStats(supabase, user.id);
+    acceptedCount = stats.acceptedCount;
+    rejectedCount = stats.rejectedCount;
+    needsReviewCount = stats.askedForReviewCount;
+    totalTasksAssigned = stats.totalTasksAssigned;
+    totalEarned = stats.totalEarned;
+    dynRating = stats.rating;
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-40 border-b border-gray-200/80 bg-white/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
-          <div className="flex items-center gap-8">
-            <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl tracking-tight">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-bold text-sm shadow-sm">
-                TF
-              </span>
-              <span>TaskForge</span>
-            </Link>
-
-            <nav className="hidden sm:flex items-center gap-1 text-sm font-medium">
-              <Link
-                href="/dashboard"
-                className="rounded-lg bg-gray-100 px-3 py-1.5 text-gray-900"
-              >
-                Dashboard
-              </Link>
-              {role === "freelancer" && (
-                <>
-                  <Link
-                    href="/marketplace"
-                    className="rounded-lg px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
-                  >
-                    Marketplace
-                  </Link>
-                  <Link
-                    href="/my-tasks"
-                    className="rounded-lg px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
-                  >
-                    My Tasks
-                  </Link>
-                  <Link
-                    href="/applications"
-                    className="rounded-lg px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
-                  >
-                    Applications
-                  </Link>
-                </>
-              )}
-            </nav>
-          </div>
-
+    <main className="min-h-screen bg-background text-foreground transition-colors">
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
+          <Link
+            href="/dashboard"
+            className="text-xl font-bold tracking-tight text-foreground"
+          >
+            Task<span className="text-primary">Forge</span>
+          </Link>
           <div className="flex items-center gap-3">
-            <NotificationBell userId={user.id} />
-
             <Link
               href="/wallet"
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-xs"
             >
-              <WalletIcon className="h-4 w-4 text-emerald-600" />
-              <span>Wallet</span>
+              <Wallet className="h-3.5 w-3.5 text-primary" />
+              <span className="hidden sm:inline">Wallet</span>
             </Link>
-
-            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-gray-200">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900 leading-tight">{displayName}</p>
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600">
-                  {role}
-                </span>
+            <ThemeToggle />
+            <NotificationBell userId={user.id} />
+            <div className="hidden sm:flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-1.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                {(profile?.full_name ?? user.email ?? "U")[0].toUpperCase()}
               </div>
+              <span className="text-sm font-medium text-foreground">
+                {profile?.full_name || user.email}
+              </span>
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                {role}
+              </span>
             </div>
-
             <form action="/auth/signout" method="post">
-              <button
-                className="flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                title="Sign out"
-              >
-                <LogOut className="h-4 w-4" />
+              <button className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer">
+                Sign out
               </button>
             </form>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="mx-auto max-w-6xl px-6 py-8">
-        {/* Welcome Banner */}
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              Welcome back, {displayName}!
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              {role === "client"
-                ? "Manage your projects, review applicants, and fund milestones."
-                : "Browse open tasks, track your applications, and deliver work."}
-            </p>
-          </div>
+      <div className="mx-auto max-w-5xl px-6 py-8 space-y-8">
+        {/* ── Welcome banner ── */}
+        <section className="rounded-xl border border-border bg-gradient-to-br from-primary/5 via-card to-card p-6">
+          <h1 className="text-2xl font-bold text-foreground">
+            Welcome back, {profile?.full_name?.split(" ")[0] || "there"} 👋
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {role === "client"
+              ? "Manage your projects, review applicants, and track task progress."
+              : "Find tasks, submit work, and grow your reputation on TaskForge."}
+          </p>
+        </section>
 
-          {role === "client" && (
-            <Link
-              href="/projects/new"
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 transition-all hover:shadow"
-            >
-              <Plus className="h-4 w-4" />
-              <span>New Project</span>
-            </Link>
-          )}
-        </div>
-
-        {/* Client View */}
-        {role === "client" ? (
-          <div className="space-y-6">
-            {(waitingApplicants ?? 0) > 0 && (
-              <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-amber-900 shadow-sm">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-                  <Briefcase className="h-5 w-5" />
+        {/* ════════════════════ FREELANCER DASHBOARD ════════════════════ */}
+        {role === "freelancer" && (
+          <>
+            {/* ── Profile card with rating ── */}
+            <section className="rounded-xl border border-border bg-card p-6">
+              <div className="flex flex-col sm:flex-row items-start gap-6">
+                {/* Avatar */}
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-blue-400 text-2xl font-bold text-white shadow-md">
+                  {(profile?.full_name ?? "U")[0].toUpperCase()}
                 </div>
-                <div className="flex-1 text-sm">
-                  <p className="font-semibold">
-                    {waitingApplicants} applicant{waitingApplicants === 1 ? "" : "s"} waiting for your review
-                  </p>
-                  <p className="text-amber-700/80 text-xs mt-0.5">
-                    Open a published project to select a freelancer and assign tasks.
-                  </p>
-                </div>
-              </div>
-            )}
 
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Your Projects</h2>
-                <span className="text-xs text-gray-500 font-medium">
-                  {projects?.length ?? 0} {projects?.length === 1 ? "project" : "projects"}
-                </span>
-              </div>
-
-              {!projects || projects.length === 0 ? (
-                <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white p-12 text-center shadow-sm">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 mb-3">
-                    <Sparkles className="h-6 w-6" />
+                <div className="flex-1 space-y-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-foreground">
+                      {profile?.full_name || user.email}
+                    </h2>
+                    <p className="text-sm text-muted-foreground capitalize flex items-center gap-1.5">
+                      <Briefcase className="h-3.5 w-3.5" />
+                      Freelancer
+                      {dynRating.isNew && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                          <ShieldCheck className="h-3 w-3" />
+                          New Talent
+                        </span>
+                      )}
+                    </p>
                   </div>
-                  <h3 className="text-sm font-semibold text-gray-900">No projects created yet</h3>
-                  <p className="mt-1 text-xs text-gray-500 max-w-sm mx-auto">
-                    Start by creating a project, break it into manageable tasks, and fund them securely through escrow.
-                  </p>
-                  <Link
-                    href="/projects/new"
-                    className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-700 transition-colors shadow-sm"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Create First Project
-                  </Link>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {projects.map((p) => {
-                    const statusCfg = STATUS_CONFIG[p.status] ?? {
-                      label: p.status,
-                      className: "bg-gray-100 text-gray-700 border-gray-200",
-                    };
-                    return (
-                      <Link
-                        key={p.id}
-                        href={`/projects/${p.id}`}
-                        className="group flex flex-col justify-between rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm hover:border-emerald-500/50 hover:shadow-md transition-all"
-                      >
-                        <div>
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <span
-                              className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusCfg.className}`}
-                            >
-                              {statusCfg.label}
-                            </span>
-                            <span className="text-[11px] text-gray-400">
-                              {new Date(p.created_at).toLocaleDateString("en-IN", {
-                                day: "numeric",
-                                month: "short",
-                              })}
-                            </span>
-                          </div>
-                          <h3 className="font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors line-clamp-1">
-                            {p.title}
-                          </h3>
-                        </div>
 
-                        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-                          <span className="font-mono tabular-nums font-medium text-gray-700">
-                            {p.total_budget > 0
-                              ? `₹${Number(p.total_budget).toLocaleString("en-IN")}`
-                              : "No cap"}
-                          </span>
-                          <span className="inline-flex items-center gap-1 font-medium text-emerald-600 group-hover:translate-x-0.5 transition-transform">
-                            View <ArrowRight className="h-3 w-3" />
-                          </span>
-                        </div>
-                      </Link>
-                    );
-                  })}
+                  {/* Rating badge */}
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
+                      <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
+                      <span className="text-lg font-bold text-foreground">
+                        {dynRating.formatted}
+                      </span>
+                      <span className="text-xs text-muted-foreground">/5.0</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {dynRating.label}
+                    </span>
+                  </div>
+
+                  {/* Stats row */}
+                  <div className="flex flex-wrap gap-3">
+                    <div className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-teal-500" />
+                      <span className="font-semibold text-foreground">
+                        {acceptedCount}
+                      </span>
+                      <span className="text-muted-foreground">Accepted</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs">
+                      <XCircle className="h-3.5 w-3.5 text-red-500" />
+                      <span className="font-semibold text-foreground">
+                        {rejectedCount}
+                      </span>
+                      <span className="text-muted-foreground">Rejected</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs">
+                      <RotateCcw className="h-3.5 w-3.5 text-amber-500" />
+                      <span className="font-semibold text-foreground">
+                        {needsReviewCount}
+                      </span>
+                      <span className="text-muted-foreground">In Review</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs">
+                      <Award className="h-3.5 w-3.5 text-primary" />
+                      <span className="font-semibold text-foreground">
+                        {totalTasksAssigned}
+                      </span>
+                      <span className="text-muted-foreground">Total Tasks</span>
+                    </div>
+                    {totalEarned > 0 && (
+                      <div className="flex items-center gap-1.5 rounded-md border border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-950/30 px-2.5 py-1 text-xs">
+                        <TrendingUp className="h-3.5 w-3.5 text-teal-600" />
+                        <span className="font-semibold text-teal-700 dark:text-teal-300">
+                          {inr(totalEarned)}
+                        </span>
+                        <span className="text-teal-600/70 dark:text-teal-400/70">
+                          Earned
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Skills */}
+                  {(profile?.skills ?? []).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(profile?.skills ?? []).map((s: string) => (
+                        <span
+                          key={s}
+                          className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          /* Freelancer View */
-          <div className="space-y-6">
+
+                {/* View public profile link */}
+                <Link
+                  href={`/freelancers/${user.id}`}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <User className="h-3.5 w-3.5" />
+                  View Profile
+                </Link>
+              </div>
+            </section>
+
+            {/* ── Quick action cards ── */}
             <div className="grid gap-4 sm:grid-cols-3">
               <Link
                 href="/marketplace"
-                className="group relative overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm hover:border-emerald-500/50 hover:shadow-md transition-all"
+                className="group rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:shadow-md transition-all"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    Open Marketplace
-                  </span>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                    <Search className="h-4 w-4" />
-                  </div>
-                </div>
-                <p className="mt-3 text-3xl font-bold font-mono tabular-nums text-gray-900">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Marketplace
+                </p>
+                <p className="mt-1 text-3xl font-bold text-foreground">
                   {openTaskCount ?? 0}
                 </p>
-                <p className="mt-1 text-xs text-emerald-600 font-medium flex items-center gap-1">
-                  Browse tasks <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                <p className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
+                  open tasks →
                 </p>
               </Link>
-
               <Link
                 href="/applications"
-                className="group relative overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm hover:border-emerald-500/50 hover:shadow-md transition-all"
+                className="group rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:shadow-md transition-all"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    My Applications
-                  </span>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                    <Send className="h-4 w-4" />
-                  </div>
-                </div>
-                <p className="mt-3 text-3xl font-bold font-mono tabular-nums text-gray-900">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  My Applications
+                </p>
+                <p className="mt-1 text-3xl font-bold text-foreground">
                   {pendingAppCount ?? 0}
                 </p>
-                <p className="mt-1 text-xs text-blue-600 font-medium flex items-center gap-1">
-                  Pending review <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                <p className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
+                  pending review →
                 </p>
               </Link>
-
               <Link
                 href="/my-tasks"
-                className="group relative overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm hover:border-emerald-500/50 hover:shadow-md transition-all"
+                className="group rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:shadow-md transition-all"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    Active Tasks
-                  </span>
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                    <CheckCircle className="h-4 w-4" />
-                  </div>
-                </div>
-                <p className="mt-3 text-3xl font-bold font-mono tabular-nums text-gray-900">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  My Tasks
+                </p>
+                <p className="mt-1 text-3xl font-bold text-foreground">
                   {activeTaskCount ?? 0}
                 </p>
-                <p className="mt-1 text-xs text-purple-600 font-medium flex items-center gap-1">
-                  Work in progress <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                <p className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
+                  active →
                 </p>
               </Link>
             </div>
 
-            {/* Skills Form */}
+            {/* ── Resume upload ── */}
+            <UpdateResumeForm
+              userId={user.id}
+              currentResumeUrl={profile?.resume_url ?? null}
+            />
+
+            {/* ── Skills editor ── */}
             <form
               action={updateSkills}
-              className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm"
+              className="rounded-xl border border-border bg-card p-5"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-base font-semibold text-gray-900">Your Skills</h2>
-                  <p className="mt-0.5 text-xs text-gray-500">
-                    Add tags (comma separated). The marketplace highlights tasks matching these skills with a green badge.
-                  </p>
-                </div>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700">
-                  {(profile?.skills ?? []).length} saved
-                </span>
-              </div>
-
-              <div className="mt-4 flex flex-col sm:flex-row gap-2.5">
+              <h2 className="text-sm font-bold text-foreground">Your Skills</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Comma separated. The marketplace highlights tasks that match
+                them.
+              </p>
+              <div className="mt-3 flex gap-3">
                 <input
                   name="skills"
                   defaultValue={(profile?.skills ?? []).join(", ")}
-                  placeholder="e.g. nextjs, typescript, tailwind, ui design, supabase"
-                  className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                  placeholder="e.g. figma, ui, frontend, backend"
+                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
-                <button className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors">
-                  Save Skills
+                <button className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer">
+                  Save
                 </button>
               </div>
-
-              {(profile?.skills ?? []).length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {(profile?.skills ?? []).map((skill: string) => (
-                    <span
-                      key={skill}
-                      className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              )}
             </form>
-          </div>
+          </>
         )}
-      </main>
-    </div>
+
+        {/* ════════════════════ CLIENT DASHBOARD ════════════════════ */}
+        {role === "client" && (
+          <>
+            {(waitingApplicants ?? 0) > 0 && (
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30 p-4 text-sm text-amber-800 dark:text-amber-300">
+                <span className="font-semibold">
+                  {waitingApplicants} applicant
+                  {waitingApplicants === 1 ? "" : "s"}
+                </span>{" "}
+                waiting for review. Open a published project to choose a
+                freelancer.
+              </div>
+            )}
+
+            {/* ── Client Wallet & Escrow Overview ── */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-border bg-card p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Available Wallet Balance
+                  </p>
+                  <p className="mt-1 text-2xl font-bold font-mono text-primary">
+                    {inr(walletSummary.available ?? 0)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Ready to lock into escrow for tasks
+                  </p>
+                </div>
+                <Link
+                  href="/wallet"
+                  className="rounded-lg bg-primary/10 hover:bg-primary/20 text-primary px-3 py-2 text-xs font-semibold transition-colors shrink-0"
+                >
+                  + Add Funds
+                </Link>
+              </div>
+
+              <div className="rounded-xl border border-border bg-card p-5 shadow-xs flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Lock className="h-3 w-3 text-amber-500" />
+                    Held in Escrow
+                  </p>
+                  <p className="mt-1 text-2xl font-bold font-mono text-amber-600 dark:text-amber-400">
+                    {inr(walletSummary.escrow ?? 0)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Secured for published tasks in progress
+                  </p>
+                </div>
+                <Link
+                  href="/wallet"
+                  className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shrink-0"
+                >
+                  <span>Ledger</span>
+                  <ArrowUpRight className="h-3 w-3" />
+                </Link>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-foreground">
+                Your Projects
+              </h2>
+              <Link
+                href="/projects/new"
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                + New project
+              </Link>
+            </div>
+
+            {!projects || projects.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border p-12 text-center text-muted-foreground">
+                <p>No projects yet.</p>
+                <Link
+                  href="/projects/new"
+                  className="mt-2 inline-block font-medium text-primary underline"
+                >
+                  Create your first project
+                </Link>
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {projects.map((p) => {
+                  const st = STATUS_LABEL[p.status] ?? {
+                    label: p.status,
+                    className: "bg-muted text-muted-foreground border-border",
+                  };
+                  return (
+                    <li key={p.id}>
+                      <Link
+                        href={`/projects/${p.id}`}
+                        className="flex items-center justify-between rounded-xl border border-border bg-card p-5 hover:border-primary/40 hover:shadow-md transition-all"
+                      >
+                        <div>
+                          <p className="font-semibold text-foreground">
+                            {p.title}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(p.created_at).toLocaleDateString("en-IN")}
+                            {p.total_budget > 0 &&
+                              ` · up to ${inr(p.total_budget)}`}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-medium ${st.className}`}
+                        >
+                          {st.label}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </>
+        )}
+      </div>
+    </main>
   );
 }

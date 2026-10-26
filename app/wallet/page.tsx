@@ -3,53 +3,51 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { addFunds } from "./actions";
 import {
-  Wallet as WalletIcon,
   ArrowLeft,
   ArrowUpRight,
   ArrowDownLeft,
-  ShieldCheck,
   Plus,
-  AlertCircle,
-  CheckCircle,
-  IndianRupee,
   Clock,
+  Lock,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationBell } from "@/components/NotificationBell";
 
 const inr = (n: number) =>
   `₹${Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
 const TXN_CONFIG: Record<
   string,
-  { label: string; sign: "+" | "-" | ""; className: string; icon: any }
+  { label: string; sign: "+" | "-" | ""; color: string; icon: any }
 > = {
   deposit: {
-    label: "Funds Added",
+    label: "Funds Deposited",
     sign: "+",
-    className: "text-emerald-600 bg-emerald-50 border-emerald-200",
+    color: "text-blue-600 dark:text-blue-400",
     icon: ArrowDownLeft,
   },
   escrow_hold: {
     label: "Held in Escrow",
     sign: "-",
-    className: "text-amber-600 bg-amber-50 border-amber-200",
-    icon: ShieldCheck,
+    color: "text-amber-600 dark:text-amber-400",
+    icon: Lock,
   },
   release: {
     label: "Released from Escrow",
     sign: "",
-    className: "text-gray-600 bg-gray-50 border-gray-200",
+    color: "text-slate-600 dark:text-slate-400",
     icon: ArrowUpRight,
   },
   refund: {
     label: "Refunded to Wallet",
     sign: "+",
-    className: "text-emerald-600 bg-emerald-50 border-emerald-200",
+    color: "text-teal-600 dark:text-teal-400",
     icon: ArrowDownLeft,
   },
   payout: {
-    label: "Payment Received",
+    label: "Milestone Payout Received",
     sign: "+",
-    className: "text-emerald-600 bg-emerald-50 border-emerald-200",
+    color: "text-teal-600 dark:text-teal-400",
     icon: ArrowDownLeft,
   },
 };
@@ -102,107 +100,107 @@ export default async function WalletPage({
   );
 
   return (
-    <div className="min-h-screen bg-gray-50/50 py-8 px-6">
+    <div className="min-h-screen bg-background text-foreground py-8 px-6">
       <div className="mx-auto max-w-4xl space-y-6">
-        {/* Back Link */}
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Back to dashboard</span>
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to Dashboard</span>
+          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <NotificationBell userId={user.id} />
+          </div>
+        </div>
 
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-gray-200 pb-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-5">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
-              <WalletIcon className="h-6 w-6 text-emerald-600" />
-              <span>Simulated Escrow Wallet</span>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+              Escrow &amp; Account Wallet
             </h1>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
               {isClient
-                ? "Funds are securely held in escrow when publishing and released upon approving deliverables."
-                : "Your earnings from completed tasks are credited directly to this balance."}
+                ? "Funds are securely locked in escrow per task and paid out upon milestone approval."
+                : "Deliverable payouts are credited directly to your balance upon client sign-off."}
             </p>
           </div>
-          <span className="self-start sm:self-auto rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700">
-            Phase 1 · Simulated Demo
+          <span className="rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+            Simulated Sandbox Mode
           </span>
         </div>
 
-        {/* Feedback Alerts */}
+        {/* Feedback */}
         {sp.error && (
-          <div className="flex items-center gap-2.5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700 shadow-sm">
-            <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
-            <span>{sp.error}</span>
+          <div className="rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 p-3.5 text-xs font-medium text-red-700 dark:text-red-400">
+            {sp.error}
           </div>
         )}
         {sp.added && (
-          <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-medium text-emerald-700 shadow-sm">
-            <CheckCircle className="h-4 w-4 shrink-0 text-emerald-600" />
-            <span>Funds successfully added to your wallet.</span>
+          <div className="rounded-lg border border-teal-200 dark:border-teal-900/60 bg-teal-50 dark:bg-teal-950/40 p-3.5 text-xs font-medium text-teal-700 dark:text-teal-400">
+            ✓ Funds successfully credited to your wallet balance.
           </div>
         )}
 
-        {/* Balance Cards */}
-        <div className="grid gap-4 sm:grid-cols-2">
+        {/* Balances Grid */}
+        <div className="grid gap-3.5 sm:grid-cols-2">
           {isClient ? (
             <>
-              <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
-                <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Available Balance
+              <div className="rounded-xl border border-border bg-card p-5.5 shadow-xs space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Available Wallet Balance
                 </span>
-                <p className="mt-2 text-3xl font-bold font-mono tabular-nums text-emerald-600">
+                <p className="text-3xl font-extrabold font-mono text-blue-600 dark:text-blue-400">
                   {inr(summary.available ?? 0)}
                 </p>
-                <p className="mt-1 text-[11px] text-gray-400">
-                  Ready to lock for new tasks or projects
+                <p className="text-xs text-muted-foreground pt-1">
+                  Ready to lock into escrow for new project tasks
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
-                <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Locked in Escrow
+              <div className="rounded-xl border border-border bg-card p-5.5 shadow-xs space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Locked in Active Escrow
                 </span>
-                <p className="mt-2 text-3xl font-bold font-mono tabular-nums text-amber-600">
+                <p className="text-3xl font-extrabold font-mono text-amber-600 dark:text-amber-400">
                   {inr(summary.escrow ?? 0)}
                 </p>
-                <p className="mt-1 text-[11px] text-gray-400">
-                  Committed to active or open tasks
+                <p className="text-xs text-muted-foreground pt-1">
+                  Committed to active tasks and released on your sign-off
                 </p>
               </div>
             </>
           ) : (
-            <div className="sm:col-span-2 rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                Total Earned to Date
+            <div className="sm:col-span-2 rounded-xl border border-border bg-card p-6 shadow-xs space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Total Milestone Earnings
               </span>
-              <p className="mt-2 text-4xl font-bold font-mono tabular-nums text-emerald-600">
+              <p className="text-3xl font-extrabold font-mono text-teal-600 dark:text-teal-400">
                 {inr(summary.earned ?? 0)}
               </p>
-              <p className="mt-1 text-xs text-gray-400">
-                Paid out automatically upon client approval
+              <p className="text-xs text-muted-foreground pt-1">
+                Verified rewards released automatically upon client deliverable approvals.
               </p>
             </div>
           )}
         </div>
 
-        {/* Add Funds Form (Clients only) */}
+        {/* Add funds */}
         {isClient && (
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm">
-            <div className="mb-4">
-              <h2 className="text-base font-semibold text-gray-900">Add Demo Funds</h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Top up your wallet to publish projects and fund escrow (up to ₹5,00,000 at a time).
+          <div className="rounded-xl border border-border bg-card p-6 shadow-xs space-y-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Add Funds to Wallet</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Top up your client account balance to fund upcoming project deliverables (up to ₹5,00,000 at a time).
               </p>
             </div>
 
-            <form action={addFunds} className="flex flex-col sm:flex-row gap-3">
+            <form action={addFunds} className="flex flex-col sm:flex-row gap-2.5 pt-1">
               <div className="relative flex-1">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">
-                  ₹
-                </span>
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-mono">₹</span>
                 <input
                   type="number"
                   name="amount"
@@ -211,43 +209,42 @@ export default async function WalletPage({
                   step="1"
                   required
                   placeholder="e.g. 50000"
-                  className="w-full rounded-xl border border-gray-200 pl-8 pr-4 py-2.5 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-mono"
+                  className="w-full rounded-md border border-input bg-background pl-8 pr-3.5 py-2.5 text-xs sm:text-sm font-mono text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-400 transition-colors"
                 />
               </div>
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700 transition-colors cursor-pointer shrink-0"
               >
                 <Plus className="h-4 w-4" />
-                <span>Add Funds</span>
+                Add to Balance
               </button>
             </form>
           </div>
         )}
 
-        {/* Transactions Ledger */}
-        <div className="rounded-2xl border border-gray-200/80 bg-white shadow-sm overflow-hidden">
-          <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">Ledger History</h2>
-              <p className="text-xs text-gray-500">Every rupee is traceable through an immutable ledger.</p>
-            </div>
-            <span className="text-xs text-gray-400 font-mono">
-              {txnList.length} transactions
+        {/* Transactions */}
+        <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
+          <div className="border-b border-border px-5 py-3.5 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+              Ledger Transactions
+            </h2>
+            <span className="text-[11px] text-muted-foreground font-mono tabular-nums">
+              {txnList.length} total entries
             </span>
           </div>
 
           {txnList.length === 0 ? (
-            <div className="p-12 text-center text-xs text-gray-400">
-              No transactions recorded yet.
+            <div className="p-10 text-center text-xs text-muted-foreground">
+              No transactions recorded yet in this workspace.
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-border">
               {txnList.map((t) => {
                 const cfg = TXN_CONFIG[t.type] ?? {
                   label: t.type,
                   sign: "",
-                  className: "text-gray-700 bg-gray-50 border-gray-200",
+                  color: "text-foreground",
                   icon: Clock,
                 };
                 const taskTitle = t.task_id ? titleById.get(t.task_id) : null;
@@ -256,37 +253,32 @@ export default async function WalletPage({
                 return (
                   <div
                     key={t.id}
-                    className="flex items-center justify-between px-6 py-4 hover:bg-gray-50/50 transition-colors"
+                    className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl border bg-white shadow-xs">
-                        <IconComponent className="h-4 w-4 text-gray-600" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
+                        <IconComponent className="h-4 w-4" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{cfg.label}</p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs font-bold text-slate-900 dark:text-white">{cfg.label}</p>
+                        <p className="text-[11px] text-muted-foreground font-mono">
                           {new Date(t.created_at).toLocaleString("en-IN", {
                             dateStyle: "medium",
                             timeStyle: "short",
                           })}
                           {taskTitle && (
-                            <span className="ml-1 text-gray-500">
-                              · Task: <span className="font-medium text-gray-700">{taskTitle}</span>
+                            <span className="ml-1 text-foreground font-sans">
+                              · {taskTitle}
                             </span>
                           )}
                         </p>
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <p className={`text-sm font-bold font-mono tabular-nums ${cfg.className.split(" ")[0]}`}>
-                        {cfg.sign}
-                        {inr(t.amount)}
-                      </p>
-                      <span className="text-[10px] uppercase font-semibold text-gray-400">
-                        {t.type.replace("_", " ")}
-                      </span>
-                    </div>
+                    <p className={`text-xs sm:text-sm font-bold font-mono tabular-nums ${cfg.color}`}>
+                      {cfg.sign}
+                      {inr(t.amount)}
+                    </p>
                   </div>
                 );
               })}

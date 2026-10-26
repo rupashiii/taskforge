@@ -1,4 +1,4 @@
-import { ExternalLink, CheckCircle2, RotateCcw, XCircle, FileText } from "lucide-react";
+import { ExternalLink, CheckCircle2, RotateCcw, XCircle } from "lucide-react";
 
 export type HistoryItem = {
   id: string;
@@ -15,18 +15,18 @@ export type HistoryItem = {
 
 const DECISION: Record<string, { label: string; className: string; icon: any }> = {
   approve: {
-    label: "Approved",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    label: "Approved & Released",
+    className: "bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800",
     icon: CheckCircle2,
   },
   revision: {
     label: "Revision Requested",
-    className: "bg-amber-50 text-amber-700 border-amber-200",
+    className: "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
     icon: RotateCcw,
   },
   reject: {
     label: "Rejected",
-    className: "bg-red-50 text-red-700 border-red-200",
+    className: "bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
     icon: XCircle,
   },
 };
@@ -38,14 +38,14 @@ function SafeLink({ url }: { url: string }) {
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 break-all text-xs font-mono text-emerald-600 hover:text-emerald-700 hover:underline"
+        className="inline-flex items-center gap-1.5 break-all text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline font-semibold"
       >
         <span>{url}</span>
         <ExternalLink className="h-3 w-3 shrink-0" />
       </a>
     );
   }
-  return <span className="break-all text-xs font-mono text-gray-500">{url}</span>;
+  return <span className="break-all text-xs font-mono text-muted-foreground">{url}</span>;
 }
 
 export default function SubmissionHistory({ items }: { items: HistoryItem[] }) {
@@ -60,16 +60,16 @@ export default function SubmissionHistory({ items }: { items: HistoryItem[] }) {
         return (
           <div
             key={s.id}
-            className="rounded-xl border border-gray-200 bg-gray-50/40 p-4 space-y-3 text-xs"
+            className="rounded-lg border border-border bg-slate-50/60 dark:bg-slate-900/40 p-4 space-y-3 text-xs"
           >
             <div className="flex items-center justify-between">
-              <span className="font-bold text-gray-900 flex items-center gap-1.5">
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-gray-900 text-[10px] font-bold text-white">
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-blue-600 text-[10px] font-bold text-white">
                   v{s.version}
                 </span>
                 <span>Deliverables Version {s.version}</span>
               </span>
-              <span className="text-[11px] text-gray-400">
+              <span className="text-[11px] text-muted-foreground font-mono">
                 {new Date(s.created_at).toLocaleString("en-IN", {
                   dateStyle: "medium",
                   timeStyle: "short",
@@ -86,28 +86,28 @@ export default function SubmissionHistory({ items }: { items: HistoryItem[] }) {
             </div>
 
             {s.notes && (
-              <div className="rounded-lg bg-white border border-gray-100 p-3 text-gray-600 whitespace-pre-wrap ml-6">
-                <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Freelancer Notes:</p>
+              <div className="rounded-md bg-card border border-border p-3 text-foreground/90 whitespace-pre-wrap ml-6">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Freelancer Submission Notes:</p>
                 {s.notes}
               </div>
             )}
 
             {s.review && decisionCfg && (
-              <div className="rounded-xl border p-3 ml-6 bg-white space-y-1.5">
+              <div className="rounded-md border border-border p-3 ml-6 bg-card space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${decisionCfg.className}`}
+                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${decisionCfg.className}`}
                   >
                     {DecisionIcon && <DecisionIcon className="h-3 w-3" />}
                     <span>{decisionCfg.label}</span>
                   </span>
-                  <span className="text-[10px] text-gray-400">
+                  <span className="text-[10px] text-muted-foreground font-mono">
                     Reviewed on {new Date(s.review.created_at).toLocaleDateString("en-IN")}
                   </span>
                 </div>
 
                 {s.review.feedback && (
-                  <p className="text-xs text-gray-700 whitespace-pre-wrap pt-1 border-t border-gray-100">
+                  <p className="text-xs text-foreground/90 whitespace-pre-wrap pt-1.5 border-t border-border">
                     {s.review.feedback}
                   </p>
                 )}
