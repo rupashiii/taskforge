@@ -2,10 +2,25 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import TaskFields from "./task-fields";
-import { addTask, deleteTask, publishProject } from "./task-actions";
+import {
+  addTask,
+  deleteTask,
+  publishProject,
+  generateMilestonesWithAI,
+} from "./task-actions";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationBell } from "@/components/NotificationBell";
-import { ArrowLeft, Users, Layers, Wallet, FileCheck2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Users,
+  Layers,
+  Wallet,
+  FileCheck2,
+  Sparkles,
+  RefreshCw,
+  AlertTriangle,
+  CheckCircle2,
+} from "lucide-react";
 
 const PROJECT_STATUS: Record<string, { label: string; className: string }> = {
   draft: {
@@ -85,10 +100,10 @@ export default async function ProjectPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; ai_error?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, ai_error } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -210,6 +225,35 @@ export default async function ProjectPage({
           </p>
         )}
 
+        {ai_error && (
+          <div className="mt-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                  AI Milestone Decomposition Notice
+                </h3>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed">
+                  {ai_error}
+                </p>
+              </div>
+            </div>
+            {isDraft && (
+              <form action={generateMilestonesWithAI} className="pt-1">
+                <input type="hidden" name="projectId" value={id} />
+                <input type="hidden" name="force" value="true" />
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 dark:bg-amber-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-amber-700 dark:hover:bg-amber-600 transition-colors cursor-pointer shadow-xs"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Retry AI Decomposition
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
         <section className="mt-6 rounded-xl border border-border bg-card p-6">
           <h2 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             Requirements
@@ -271,12 +315,64 @@ export default async function ProjectPage({
 
         {/* Task list */}
         <section className="mt-6">
-          <h2 className="text-xl font-bold text-foreground">Tasks</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-foreground">
+                {isDraft ? "Milestones (AI Decomposed)" : "Milestones"}
+              </h2>
+              {isDraft && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Review generated milestones. Click <strong>Edit</strong> to modify requirements or rewards, then approve to lock escrow.
+                </p>
+              )}
+            </div>
+
+            {isDraft && taskList.length > 0 && (
+              <form action={generateMilestonesWithAI}>
+                <input type="hidden" name="projectId" value={id} />
+                <input type="hidden" name="force" value="true" />
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted transition-colors cursor-pointer shadow-xs shrink-0"
+                  title="Re-run AI decomposition on your project description"
+                >
+                  <RefreshCw className="h-3 w-3 text-muted-foreground" />
+                  <span>Regenerate Milestones with AI</span>
+                </button>
+              </form>
+            )}
+          </div>
 
           {taskList.length === 0 ? (
-            <p className="mt-3 text-muted-foreground">
-              No tasks yet. Add your first task below.
-            </p>
+            isDraft ? (
+              <div className="mt-4 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 dark:bg-primary/10 p-8 text-center space-y-3">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">
+                    No milestones generated yet
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                    Click below to decompose your project scope and budget into 3 to 6 structured milestones.
+                  </p>
+                </div>
+                <form action={generateMilestonesWithAI}>
+                  <input type="hidden" name="projectId" value={id} />
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Generate Milestones with AI
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <p className="mt-3 text-muted-foreground text-sm">
+                No milestones have been published for this project.
+              </p>
+            )
           ) : (
             <ul className="mt-4 space-y-3">
               {taskList.map((t, i) => {
@@ -403,44 +499,59 @@ export default async function ProjectPage({
           )}
         </section>
 
-        {/* Add task + publish (draft only) */}
+        {/* Optional Custom Milestone + Human-in-the-Loop Approval (draft only) */}
         {isDraft ? (
           <>
-            <details
-              open={taskList.length === 0}
-              className="mt-6 rounded-xl border border-border bg-card p-6"
-            >
-              <summary className="cursor-pointer text-lg font-semibold text-foreground">
-                + Add a task
+            {/* Optional Custom Milestone */}
+            <details className="mt-6 rounded-xl border border-border bg-card p-5 group">
+              <summary className="cursor-pointer text-sm font-semibold text-foreground flex items-center justify-between">
+                <span>+ Add a custom milestone (Optional)</span>
+                <span className="text-xs text-muted-foreground group-open:rotate-180 transition-transform">▾</span>
               </summary>
-              <form action={addTask} className="mt-5 space-y-5">
+              <form action={addTask} className="mt-5 space-y-4">
                 <input type="hidden" name="projectId" value={id} />
                 <TaskFields />
                 <button
                   type="submit"
-                  className="rounded-lg bg-primary px-5 py-3 font-medium text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
+                  className="rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors cursor-pointer"
                 >
-                  Add task
+                  Save custom milestone
                 </button>
               </form>
             </details>
 
-            <section className="mt-6 rounded-xl border-2 border-primary bg-card p-6">
-              <h2 className="text-lg font-bold text-foreground">
-                Ready to publish?
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Publishing makes all tasks visible to freelancers on the
-                marketplace. You will not be able to edit tasks afterwards.
-              </p>
-              <form action={publishProject} className="mt-4">
+            {/* Human-in-the-Loop Approval & Escrow Lock */}
+            <section className="mt-6 rounded-xl border-2 border-primary bg-card p-6 space-y-3">
+              <div>
+                <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  Approve Milestones &amp; Fund Escrow
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Carefully review the decomposed milestones above. Once approved, the total reward ({inr(totalReward)}) will be locked into escrow from your wallet balance, and the milestones will go live for freelancers on the marketplace.
+                </p>
+              </div>
+
+              {overBudget && (
+                <div className="rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 p-3 text-xs font-medium text-red-700 dark:text-red-400">
+                  Total milestone rewards ({inr(totalReward)}) exceed your project budget ({inr(budget)}). Please edit or delete milestones before approving.
+                </div>
+              )}
+
+              <form action={publishProject} className="pt-1 flex flex-wrap items-center gap-3">
                 <input type="hidden" name="projectId" value={id} />
                 <button
-                  disabled={taskList.length === 0}
-                  className="rounded-lg bg-primary px-5 py-3 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-colors cursor-pointer"
+                  disabled={taskList.length === 0 || overBudget}
+                  className="rounded-lg bg-primary px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                 >
-                  Publish project
+                  Approve &amp; Lock Escrow ({inr(totalReward)})
                 </button>
+                <Link
+                  href="/wallet"
+                  className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+                >
+                  Check Wallet Balance
+                </Link>
               </form>
             </section>
           </>

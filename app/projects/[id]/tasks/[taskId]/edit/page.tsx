@@ -24,11 +24,11 @@ export default async function EditTaskPage({
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, title, status")
+    .select("id, title, status, client_id")
     .eq("id", id)
     .single();
 
-  if (!project) notFound();
+  if (!project || project.client_id !== user.id) notFound();
   if (project.status !== "draft") redirect(`/projects/${id}`);
 
   const { data: task } = await supabase

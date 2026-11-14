@@ -33,6 +33,7 @@ export async function createProject(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim();
   const budgetRaw = String(formData.get("budget") ?? "").trim();
   const budget = budgetRaw === "" ? 0 : Number(budgetRaw);
+  const timeline = String(formData.get("timeline") ?? "").trim();
 
   if (title.length < 3) fail("Title must be at least 3 characters.");
   if (title.length > 120) fail("Title is too long (max 120 characters).");
@@ -40,18 +41,28 @@ export async function createProject(formData: FormData) {
     fail("Please describe your project in at least 30 characters.");
   if (Number.isNaN(budget) || budget < 0) fail("Budget must be a positive number.");
 
-  const { data, error } = await supabase
+  // Append timeline to description so AI can factor it in during decomposition
+  let fullDescription = description;
+  if (timeline) {
+    fullDescription += `\n\n[Project Timeline / Deadline: ${timeline}]`;
+  }
+
+  // Create the project in 'draft' status (AI decomposition is triggered separately)
+  const { data: project, error: projectError } = await supabase
     .from("projects")
     .insert({
       client_id: user.id,
       title,
-      description,
+      description: fullDescription,
       total_budget: budget,
+      status: "draft",
     })
     .select("id")
     .single();
 
-  if (error || !data) fail(error?.message ?? "Could not create project.");
+  if (projectError || !project) {
+    fail(projectError?.message ?? "Could not create project.");
+  }
 
-  redirect(`/projects/${data.id}`);
+  redirect(`/projects/${project.id}`);
 }

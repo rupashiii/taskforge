@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createProject } from "../actions";
-import { ArrowLeft, FolderPlus } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default async function NewProjectPage({
@@ -51,7 +51,7 @@ export default async function NewProjectPage({
             Create a New Project
           </h1>
           <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
-            Provide the high-level objective and deliverables. Next, you can break it into escrowed tasks.
+            Provide the project details below. After creating, you can decompose it into tasks using AI.
           </p>
         </div>
 
@@ -90,36 +90,52 @@ export default async function NewProjectPage({
               className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground leading-relaxed outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-400 transition-colors"
             />
             <p className="mt-1.5 text-[11px] text-muted-foreground">
-              At least 30 characters. The more specific your scope, the higher quality the task breakdown.
+              At least 30 characters. The more specific your scope, the higher quality the AI task breakdown.
             </p>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-              Target Budget (₹) <span className="text-muted-foreground font-normal lowercase">— optional</span>
-            </label>
-            <div className="relative">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-mono">₹</span>
-              <input
-                name="budget"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="e.g. 50000"
-                className="w-full rounded-md border border-input bg-background pl-8 pr-3.5 py-2.5 text-sm font-mono text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-400 transition-colors"
-              />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Total Budget (₹)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-mono">₹</span>
+                <input
+                  name="budget"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="e.g. 50000"
+                  className="w-full rounded-md border border-input bg-background pl-8 pr-3.5 py-2.5 text-sm font-mono text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-400 transition-colors"
+                />
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Total reward sum of all tasks cannot exceed this cap.
+              </p>
             </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
-              Total reward sum of all decomposed tasks cannot exceed this cap when publishing.
-            </p>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Project Timeline
+              </label>
+              <input
+                name="timeline"
+                type="text"
+                placeholder="e.g. 2 weeks, 30 days, by Dec 2026"
+                className="w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-400 transition-colors"
+              />
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Expected delivery timeframe for the overall project.
+              </p>
+            </div>
           </div>
 
           <button
             type="submit"
             className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors cursor-pointer"
           >
-            <FolderPlus className="h-4 w-4" />
-            Create Project Draft
+            Create Project
           </button>
         </form>
       </div>

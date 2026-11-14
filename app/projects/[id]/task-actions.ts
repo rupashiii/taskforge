@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { decomposeProjectWithAI } from "@/lib/ai/decompose";
 
 type ParsedTask = {
   title: string;
@@ -31,7 +32,7 @@ async function requireDraftProject(projectId: string) {
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, status, total_budget")
+    .select("id, title, description, status, total_budget")
     .eq("id", projectId)
     .eq("client_id", user.id)
     .single();
@@ -161,6 +162,66 @@ export async function deleteTask(formData: FormData) {
 
   revalidatePath(`/projects/${projectId}`);
   redirect(`/projects/${projectId}`);
+}
+
+export async function generateMilestonesWithAI(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  const force = String(formData.get("force") ?? "") === "true";
+  const { supabase, project } = await requireDraftProject(projectId);
+
+  // Check if project already has tasks to prevent duplicate generation
+  const { data: existingTasks } = await supabase
+    .from("tasks")
+    .select("id, status")
+    .eq("project_id", projectId);
+
+  if (existingTasks && existingTasks.length > 0 && !force) {
+    fail(
+      `/projects/${projectId}`,
+      "This project already has milestones. Use Regenerate to replace draft milestones."
+    );
+  }
+
+  try {
+    const aiTasks = await decomposeProjectWithAI({
+      title: project.title,
+      description: project.description,
+      totalBudget: Number(project.total_budget ?? 0),
+    });
+
+    if (existingTasks && existingTasks.length > 0 && force) {
+      // Clean up previous draft tasks to avoid duplicates
+      await supabase
+        .from("tasks")
+        .delete()
+        .eq("project_id", projectId)
+        .eq("status", "draft");
+    }
+
+    const taskRows = aiTasks.map((t) => ({
+      project_id: projectId,
+      status: "draft",
+      title: t.title,
+      description: t.description,
+      skills_required: t.skills_required,
+      acceptance_criteria: t.acceptance_criteria,
+      complexity: t.complexity,
+      estimated_hours: t.estimated_hours,
+      reward_amount: t.reward_amount,
+      depends_on: [],
+    }));
+
+    const { error: insertError } = await supabase
+      .from("tasks")
+      .insert(taskRows);
+
+    if (insertError) fail(`/projects/${projectId}`, insertError.message);
+
+    revalidatePath(`/projects/${projectId}`);
+    redirect(`/projects/${projectId}`);
+  } catch (err: any) {
+    fail(`/projects/${projectId}`, err.message || "Failed to generate milestones with AI.");
+  }
 }
 
 export async function publishProject(formData: FormData) {
