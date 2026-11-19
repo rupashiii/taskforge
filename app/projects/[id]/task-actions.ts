@@ -208,6 +208,7 @@ export async function generateMilestonesWithAI(formData: FormData) {
       complexity: t.complexity,
       estimated_hours: t.estimated_hours,
       reward_amount: t.reward_amount,
+      deadline: "deadline" in t && t.deadline ? t.deadline : null,
       depends_on: [],
     }));
 

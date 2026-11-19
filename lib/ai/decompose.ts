@@ -2,6 +2,12 @@ import {
   AIDecompositionResponseSchema,
   MilestoneTask,
 } from "./schema";
+import {
+  computeSchedule,
+  parseProjectDeadline,
+  validateSchedule,
+  ScheduledMilestone,
+} from "./scheduler";
 
 interface DecomposeProjectInput {
   title: string;
@@ -172,6 +178,7 @@ async function callGemini(
 /**
  * Decomposes a project into 3-6 milestones via Google Gemini API,
  * strictly validated with Zod and mathematical budget constraints.
+ * Computes deadline scheduling based on effort, dependencies, and project timeline.
  *
  * Uses GEMINI_API_KEY from environment. Server-side only — never
  * expose the key to the client browser.
@@ -180,7 +187,7 @@ export async function decomposeProjectWithAI({
   title,
   description,
   totalBudget,
-}: DecomposeProjectInput): Promise<MilestoneTask[]> {
+}: DecomposeProjectInput): Promise<ScheduledMilestone[]> {
   const geminiKey = process.env.GEMINI_API_KEY?.trim();
 
   if (!geminiKey) {
@@ -190,7 +197,7 @@ export async function decomposeProjectWithAI({
   }
 
   const systemPrompt = `You are an expert technical product manager and software architect specializing in agile milestone decomposition.
-Your goal is to break down software and technical projects into 3 to 6 logical, sequentially actionable milestones for verified freelancers.
+Your goal is to break down software and technical projects into 3 to 6 logical, actionable milestones for verified freelancers.
 
 RULES:
 1. Decompose the project into between 3 and 6 milestones (inclusive).
@@ -200,9 +207,15 @@ RULES:
    - skills_required: array of 1 to 5 relevant technical/design skills (lowercase)
    - acceptance_criteria: array of 2 to 5 concrete, verifiable evaluation checks
    - complexity: integer from 1 (very easy) to 5 (complex architecture)
-   - estimated_hours: realistic development hours (e.g. 4, 8, 16)
+   - estimated_hours: realistic development hours (e.g. 4, 8, 16, 24, 40). Be precise — these hours directly drive deadline scheduling.
    - reward_amount: suggested reward in INR (₹). The sum across all tasks MUST NOT exceed the client total budget of ₹${totalBudget}.
-3. Respond ONLY with a valid JSON object matching the requested schema. No conversational preamble or trailing explanation.`;
+   - depends_on_indices: array of 0-based indices of milestones this task depends on. Use [] if the task has no dependencies (can start immediately). Only reference indices of tasks that appear BEFORE this task in the array.
+3. Ordering and dependency guidelines:
+   - Tasks that can be worked on independently and in parallel SHOULD have depends_on_indices: [].
+   - Tasks that require output from a prior task MUST list that task's index in depends_on_indices.
+   - Do NOT make all tasks sequential unless they truly depend on each other.
+   - Example: if task 2 needs task 0's output but NOT task 1's, set depends_on_indices: [0], not [0, 1].
+4. Respond ONLY with a valid JSON object matching the requested schema. No conversational preamble or trailing explanation.`;
 
   const userPrompt = `Project Title: ${title}
 Total Budget: ₹${totalBudget}
@@ -219,7 +232,8 @@ Generate the milestone breakdown as a JSON object:
       "acceptance_criteria": ["criteria 1", "criteria 2"],
       "complexity": 1-5,
       "estimated_hours": 8,
-      "reward_amount": 5000
+      "reward_amount": 5000,
+      "depends_on_indices": []
     }
   ]
 }`;
@@ -232,5 +246,18 @@ Generate the milestone breakdown as a JSON object:
   // Independently clamp budget constraints mathematically
   const clampedTasks = clampMilestoneRewards(rawTasks, totalBudget);
 
-  return clampedTasks;
+  // Parse project deadline from description
+  const projectDeadline = parseProjectDeadline(description);
+
+  // Compute deadlines using the scheduling engine
+  const scheduled = computeSchedule(clampedTasks, projectDeadline);
+
+  // Validate that all deadlines respect the project deadline
+  const validationError = validateSchedule(scheduled, projectDeadline);
+  if (validationError) {
+    // This shouldn't happen since computeSchedule enforces it, but just in case
+    console.warn("Schedule validation warning:", validationError);
+  }
+
+  return scheduled;
 }

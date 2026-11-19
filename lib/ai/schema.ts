@@ -28,6 +28,10 @@ export const MilestoneTaskSchema = z.object({
   reward_amount: z
     .number()
     .positive("Reward must be greater than 0"),
+  depends_on_indices: z
+    .array(z.number().int().min(0))
+    .max(5, "Maximum 5 dependencies")
+    .default([]),
 });
 
 export const AIDecompositionResponseSchema = z.object({
