@@ -23,18 +23,18 @@ async function runTests() {
   console.log("\n🧪 RUNNING AI WORKFLOW VERIFICATION TEST SUITE\n");
 
   // -------------------------------------------------------------
-  // Test 1: Budget Overflow Clamp (Zero reliance on LLM arithmetic)
+  // Test 1: Effort × Complexity Deterministic Reward Allocation
   // -------------------------------------------------------------
-  console.log("--- Test 1: Budget Overflow Clamp ---");
+  console.log("--- Test 1: Effort × Complexity Reward Allocation ---");
   const overflowTasks: MilestoneTask[] = [
     {
       title: "UI Design",
       description: "Design high fidelity wireframes and prototype",
       skills_required: ["figma", "ui"],
       acceptance_criteria: ["Mobile and desktop views", "Interactive prototype"],
-      complexity: 3,
-      estimated_hours: 10,
-      reward_amount: 25000,
+      complexity: 2,
+      estimated_hours: 10,   // weight = 10 × 2 = 20
+      reward_amount: 99999,  // AI suggestion — should be ignored entirely
       depends_on_indices: [],
     },
     {
@@ -43,8 +43,8 @@ async function runTests() {
       skills_required: ["node", "postgres"],
       acceptance_criteria: ["Unit tests passing", "Endpoints documented"],
       complexity: 4,
-      estimated_hours: 20,
-      reward_amount: 35000,
+      estimated_hours: 20,   // weight = 20 × 4 = 80
+      reward_amount: 99999,
       depends_on_indices: [],
     },
     {
@@ -52,29 +52,41 @@ async function runTests() {
       description: "End to end integration and deployment",
       skills_required: ["react", "nextjs"],
       acceptance_criteria: ["Deployed on Vercel", "Zero console errors"],
-      complexity: 4,
-      estimated_hours: 15,
-      reward_amount: 20000,
+      complexity: 2,
+      estimated_hours: 10,   // weight = 10 × 2 = 20
+      reward_amount: 99999,
       depends_on_indices: [0, 1],
     },
   ];
+  // Total weight = 20 + 80 + 20 = 120
+  // Task 0: floor(20/120 × 50000) = floor(8333.3) = 8333
+  // Task 1: floor(80/120 × 50000) = floor(33333.3) = 33333
+  // Task 2: floor(20/120 × 50000) = floor(8333.3) = 8333
+  // Allocated = 8333 + 33333 + 8333 = 49999, remainder = 1 → goes to task 1 (complexity 4)
+  // Final: [8333, 33334, 8333] → sum = 50000
 
-  // Total is 25000 + 35000 + 20000 = 80000. Target budget is 50000.
   const budget = 50000;
   const clamped = clampMilestoneRewards(overflowTasks, budget);
   const clampedTotal = clamped.reduce((sum, t) => sum + t.reward_amount, 0);
 
   assert(
-    clampedTotal <= budget,
-    `Clamped total (${clampedTotal}) does not exceed budget (${budget})`
-  );
-  assert(
     clampedTotal === budget,
-    `Clamped total exactly equals the budget after integer remainder distribution (${clampedTotal} === ${budget})`
+    `Rewards sum exactly equals budget: ${clampedTotal} === ${budget}`
   );
   assert(
     clamped.every((t) => Number.isInteger(t.reward_amount) && t.reward_amount > 0),
-    "All clamped rewards are positive integers"
+    "All rewards are positive integers"
+  );
+  // Highest-weight task (Backend, complexity 4) should have the largest reward
+  assert(
+    clamped[1].reward_amount > clamped[0].reward_amount &&
+    clamped[1].reward_amount > clamped[2].reward_amount,
+    `Higher effort×complexity task earns more: Backend ₹${clamped[1].reward_amount} > UI ₹${clamped[0].reward_amount}, Testing ₹${clamped[2].reward_amount}]`
+  );
+  // AI's suggested reward_amount (99999) must be completely ignored
+  assert(
+    clamped.every((t) => t.reward_amount !== 99999),
+    "AI suggested reward_amount is completely ignored — only effort×complexity determines rewards"
   );
 
   // -------------------------------------------------------------

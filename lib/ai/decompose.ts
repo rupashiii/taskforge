@@ -16,51 +16,52 @@ interface DecomposeProjectInput {
 }
 
 /**
- * Independently validates and clamps milestone rewards so that
- * their sum never exceeds the project budget, regardless of LLM arithmetic.
+ * Computes milestone rewards deterministically using Approach 2:
+ *   weight_i  = estimated_hours_i × complexity_i
+ *   reward_i  = floor(weight_i / sum(weights) × totalBudget)
+ *
+ * The AI's suggested reward_amount is intentionally ignored — the math
+ * always decides the money. Integer remainder is distributed to the
+ * highest-complexity task so that sum(rewards) == totalBudget exactly.
+ *
+ * If budget is 0 or unset, a minimum floor of ₹100 per task is applied.
  */
 export function clampMilestoneRewards(
   tasks: MilestoneTask[],
   totalBudget: number
 ): MilestoneTask[] {
+  if (tasks.length === 0) return tasks;
+
   if (totalBudget <= 0) {
-    return tasks.map((t) => ({
-      ...t,
-      reward_amount: Math.max(100, Math.round(t.reward_amount)),
-    }));
+    return tasks.map((t) => ({ ...t, reward_amount: 100 }));
   }
 
-  const currentTotal = tasks.reduce((sum, t) => sum + t.reward_amount, 0);
+  // Compute per-task weights: hours × complexity
+  const weights = tasks.map((t) =>
+    Math.max(1, t.estimated_hours) * Math.max(1, t.complexity)
+  );
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
 
-  if (currentTotal <= totalBudget) {
-    return tasks.map((t) => ({
-      ...t,
-      reward_amount: Math.max(1, Math.round(t.reward_amount)),
-    }));
-  }
+  // Allocate rewards proportionally, floor to avoid overshoot
+  const rewards = weights.map((w) =>
+    Math.max(1, Math.floor((w / totalWeight) * totalBudget))
+  );
 
-  // Mathematically scale down rewards proportionally
-  const scale = totalBudget / currentTotal;
-  const scaledTasks = tasks.map((t) => ({
-    ...t,
-    reward_amount: Math.max(1, Math.floor(t.reward_amount * scale)),
-  }));
+  // Distribute integer remainder to the highest-complexity task
+  const allocated = rewards.reduce((sum, r) => sum + r, 0);
+  const remainder = totalBudget - allocated;
 
-  // Distribute any remainder due to Math.floor to the highest complexity task
-  const scaledTotal = scaledTasks.reduce((sum, t) => sum + t.reward_amount, 0);
-  const remainder = Math.floor(totalBudget - scaledTotal);
-
-  if (remainder > 0 && scaledTasks.length > 0) {
+  if (remainder > 0) {
     let maxComplexityIndex = 0;
-    for (let i = 1; i < scaledTasks.length; i++) {
-      if (scaledTasks[i].complexity > scaledTasks[maxComplexityIndex].complexity) {
+    for (let i = 1; i < tasks.length; i++) {
+      if (tasks[i].complexity > tasks[maxComplexityIndex].complexity) {
         maxComplexityIndex = i;
       }
     }
-    scaledTasks[maxComplexityIndex].reward_amount += remainder;
+    rewards[maxComplexityIndex] += remainder;
   }
 
-  return scaledTasks;
+  return tasks.map((t, i) => ({ ...t, reward_amount: rewards[i] }));
 }
 
 /**
