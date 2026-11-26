@@ -5,12 +5,27 @@
 
 -- ─── 1. Extend submissions table ────────────────────────────
 
--- Rename existing columns to make clear they are the preview package
-ALTER TABLE public.submissions
-  RENAME COLUMN links TO preview_links;
+-- Safely rename existing columns if they haven't been renamed yet
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'submissions' 
+      AND column_name = 'links'
+  ) THEN
+    ALTER TABLE public.submissions RENAME COLUMN links TO preview_links;
+  END IF;
 
-ALTER TABLE public.submissions
-  RENAME COLUMN notes TO preview_notes;
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'submissions' 
+      AND column_name = 'notes'
+  ) THEN
+    ALTER TABLE public.submissions RENAME COLUMN notes TO preview_notes;
+  END IF;
+END $$;
 
 -- Add new preview and final-deliverable columns
 ALTER TABLE public.submissions
@@ -80,6 +95,10 @@ CREATE POLICY "Freelancers can read own deliverables"
 -- Direct client access is blocked — no broad client SELECT policy is created.
 
 -- ─── 4. Update submit_work RPC to accept preview + final fields ─
+
+-- Drop old overloads so function signature is unambiguous
+DROP FUNCTION IF EXISTS public.submit_work(UUID, TEXT[], TEXT);
+DROP FUNCTION IF EXISTS public.submit_work(UUID, TEXT[], TEXT, TEXT, TEXT[]);
 
 CREATE OR REPLACE FUNCTION public.submit_work(
   p_task_id          UUID,
@@ -167,6 +186,10 @@ $$;
 -- ─── 5. Update review_submission RPC ────────────────────────
 -- Adds final_unlocked=TRUE on approve, keeps everything else the same.
 -- Rename 'reject' decision handling to also accept 'decline' as alias.
+
+DROP FUNCTION IF EXISTS public.review_submission(UUID, TEXT, TEXT, BOOLEAN);
+DROP FUNCTION IF EXISTS public.review_submission(UUID, TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.review_submission(UUID, TEXT);
 
 CREATE OR REPLACE FUNCTION public.review_submission(
   p_submission_id  UUID,
@@ -351,6 +374,8 @@ $$;
 -- Called server-side only via service role; validates unlock status before
 -- generating signed URLs. Never called directly from browser.
 
+DROP FUNCTION IF EXISTS public.check_final_access(UUID);
+
 CREATE OR REPLACE FUNCTION public.check_final_access(
   p_submission_id UUID
 )
@@ -399,6 +424,6 @@ END;
 $$;
 
 -- Grant execute to authenticated users (the actual access check is inside)
-GRANT EXECUTE ON FUNCTION public.submit_work TO authenticated;
-GRANT EXECUTE ON FUNCTION public.review_submission TO authenticated;
-GRANT EXECUTE ON FUNCTION public.check_final_access TO authenticated;
+GRANT EXECUTE ON FUNCTION public.submit_work(UUID, TEXT[], TEXT, TEXT, TEXT[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.review_submission(UUID, TEXT, TEXT, BOOLEAN) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.check_final_access(UUID) TO authenticated;
