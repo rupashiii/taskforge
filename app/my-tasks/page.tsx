@@ -1,17 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { startTask, submitWork } from "./actions";
+import { startTask } from "./actions";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationBell } from "@/components/NotificationBell";
 import SubmissionHistory, {
   type HistoryItem,
 } from "@/components/submission-history";
+import DualSubmitForm from "@/components/DualSubmitForm";
 import {
   ArrowLeft,
   Clock,
   CheckCircle2,
-  Send,
   AlertCircle,
   FileCheck2,
   History,
@@ -85,7 +85,7 @@ export default async function MyTasksPage({
   const { data: submissions } = taskIds.length
     ? await supabase
         .from("submissions")
-        .select("id, task_id, version, links, notes, created_at")
+        .select("id, task_id, version, preview_links, preview_notes, created_at")
         .eq("freelancer_id", user.id)
         .in("task_id", taskIds)
         .order("created_at", { ascending: false })
@@ -111,8 +111,8 @@ export default async function MyTasksPage({
       id: s.id,
       version: s.version,
       created_at: s.created_at,
-      links: s.links ?? [],
-      notes: s.notes,
+      links: s.preview_links ?? [],
+      notes: s.preview_notes,
       review: r
         ? {
             decision: r.decision,
@@ -282,70 +282,12 @@ export default async function MyTasksPage({
 
                   {/* Action 2: Submit work */}
                   {canSubmit && (
-                    <form
-                      action={submitWork}
-                      className="mt-5 space-y-4 rounded-xl border border-primary/30 bg-primary/5 dark:bg-primary/10 p-5"
-                    >
-                      <input type="hidden" name="taskId" value={t.id} />
-                      <div>
-                        <h3 className="font-bold text-sm text-foreground flex items-center gap-1.5">
-                          <Send className="h-4 w-4 text-primary" />
-                          {t.status === "revision_requested"
-                            ? "Submit Updated Work"
-                            : "Submit Your Work"}
-                        </h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Provide working links and deliverables for client
-                          verification and escrow approval.
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                          Deliverable Links{" "}
-                          <span className="font-normal lowercase">
-                            — one per line
-                          </span>
-                        </label>
-                        <textarea
-                          name="links"
-                          required
-                          rows={3}
-                          placeholder={
-                            "https://github.com/org/repo\nhttps://www.figma.com/file/..."
-                          }
-                          className="w-full rounded-lg border border-input bg-background p-3 text-sm font-mono placeholder:font-sans placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-                        />
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          Use GitHub, Figma, Google Drive, Vercel preview or any
-                          accessible link.
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                          Notes for the Client{" "}
-                          <span className="font-normal lowercase">
-                            — optional
-                          </span>
-                        </label>
-                        <textarea
-                          name="notes"
-                          rows={3}
-                          maxLength={2000}
-                          placeholder="Summary of completed milestones, test credentials, or instructions..."
-                          className="w-full rounded-lg border border-input bg-background p-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-                        />
-                      </div>
-
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs cursor-pointer"
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        Submit work for review
-                      </button>
-                    </form>
+                    <div className="mt-5">
+                      <DualSubmitForm
+                        taskId={t.id}
+                        isRevision={t.status === "revision_requested"}
+                      />
+                    </div>
                   )}
 
                   {/* Status notice: Submitted */}

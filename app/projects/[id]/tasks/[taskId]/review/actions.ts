@@ -14,8 +14,11 @@ export async function reviewSubmission(formData: FormData) {
 
   const reviewPath = `/projects/${projectId}/tasks/${taskId}/review`;
 
-  if (!["approve", "revision", "reject"].includes(decision)) {
+  if (!["approve", "revision", "reject", "decline"].includes(decision)) {
     redirect(`${reviewPath}?error=${encodeURIComponent("Choose a decision first.")}`);
+  }
+  if ((decision === "revision" || decision === "reject" || decision === "decline") && !feedback) {
+    redirect(`${reviewPath}?error=${encodeURIComponent("Detailed feedback notes are required when requesting revisions or declining.")}`);
   }
   if (feedback.length > 2000) {
     redirect(`${reviewPath}?error=${encodeURIComponent("Feedback is too long (max 2000 characters).")}`);

@@ -28,8 +28,10 @@ export async function startTask(formData: FormData) {
 
 export async function submitWork(formData: FormData) {
   const taskId = String(formData.get("taskId") ?? "");
-  const linksRaw = String(formData.get("links") ?? "");
-  const notes = String(formData.get("notes") ?? "").trim();
+  const previewLinksRaw = String(formData.get("preview_links") ?? "");
+  const previewNotes = String(formData.get("preview_notes") ?? "").trim();
+  const demoUrl = String(formData.get("demo_url") ?? "").trim();
+  const finalPathsRaw = String(formData.get("final_paths") ?? "").trim();
 
   const supabase = await createClient();
   const {
@@ -37,15 +39,17 @@ export async function submitWork(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const links = linksRaw
+  // Parse preview links (one per line)
+  const previewLinks = previewLinksRaw
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
 
-  if (links.length === 0) fail("Add at least one link to your work.");
-  if (links.length > 10) fail("You can add at most 10 links.");
+  if (previewLinks.length === 0)
+    fail("Add at least one preview link (screenshot, demo URL, or repo link).");
+  if (previewLinks.length > 10) fail("You can add at most 10 preview links.");
 
-  for (const link of links) {
+  for (const link of previewLinks) {
     let ok = false;
     try {
       const u = new URL(link);
@@ -56,12 +60,39 @@ export async function submitWork(formData: FormData) {
     if (!ok) fail(`"${link}" is not a valid http(s) link.`);
   }
 
-  if (notes.length > 2000) fail("Notes are too long (max 2000 characters).");
+  // Validate optional demo URL
+  if (demoUrl) {
+    let ok = false;
+    try {
+      const u = new URL(demoUrl);
+      ok = u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      ok = false;
+    }
+    if (!ok) fail(`"${demoUrl}" is not a valid demo URL.`);
+  }
+
+  if (previewNotes.length > 2000) fail("Preview notes are too long (max 2000 characters).");
+
+  // Parse final file paths (JSON array stored in hidden input)
+  let finalPaths: string[] = [];
+  if (finalPathsRaw) {
+    try {
+      const parsed = JSON.parse(finalPathsRaw);
+      if (Array.isArray(parsed)) {
+        finalPaths = parsed.filter((p) => typeof p === "string" && p.length > 0);
+      }
+    } catch {
+      // Invalid JSON — ignore, final paths are optional
+    }
+  }
 
   const { error } = await supabase.rpc("submit_work", {
     p_task_id: taskId,
-    p_links: links,
-    p_notes: notes || null,
+    p_links: previewLinks,
+    p_notes: previewNotes || null,
+    p_demo_url: demoUrl || null,
+    p_final_paths: finalPaths,
   });
 
   if (error) fail(error.message);

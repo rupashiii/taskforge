@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { reviewSubmission } from "./actions";
 import SubmissionHistory, { type HistoryItem } from "@/components/submission-history";
+import FinalFilesPanel from "@/components/FinalFilesPanel";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -10,10 +11,31 @@ import {
   AlertCircle,
   Check,
   RotateCcw,
+  ExternalLink,
+  Globe,
+  FileText,
+  Lock,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const inr = (n: number) => `₹${Number(n).toLocaleString("en-IN")}`;
+
+function SafeLink({ url }: { url: string }) {
+  if (/^https?:\/\//i.test(url)) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 break-all text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+      >
+        <span>{url}</span>
+        <ExternalLink className="h-3 w-3 shrink-0" />
+      </a>
+    );
+  }
+  return <span className="break-all text-xs font-mono text-muted-foreground">{url}</span>;
+}
 
 export default async function ReviewPage({
   params,
@@ -52,7 +74,7 @@ export default async function ReviewPage({
 
   const { data: submissions } = await supabase
     .from("submissions")
-    .select("id, version, links, notes, created_at, freelancer_id")
+    .select("id, version, preview_links, preview_notes, preview_demo_url, final_unlocked, created_at, freelancer_id")
     .eq("task_id", taskId)
     .order("created_at", { ascending: false });
 
@@ -76,8 +98,8 @@ export default async function ReviewPage({
       id: s.id,
       version: s.version,
       created_at: s.created_at,
-      links: s.links ?? [],
-      notes: s.notes,
+      links: s.preview_links ?? [],
+      notes: s.preview_notes,
       review: r
         ? { decision: r.decision, feedback: r.feedback, created_at: r.created_at }
         : null,
@@ -157,6 +179,99 @@ export default async function ReviewPage({
           </div>
         )}
 
+        {/* Current Submission Deliverables */}
+        {latest && (
+          <div className="space-y-4">
+            {/* ── Section A: Preview Package ── */}
+            <div className="rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-600 text-xs font-bold text-white">
+                    v{latest.version}
+                  </span>
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Section A — Preview Package
+                    </h2>
+                    <p className="text-[11px] text-muted-foreground">
+                      Submitted on{" "}
+                      {new Date(latest.created_at).toLocaleString("en-IN", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-blue-100 dark:bg-blue-900/60 px-2.5 py-0.5 text-[10px] font-bold text-blue-800 dark:text-blue-300">
+                  Preview Available
+                </span>
+              </div>
+
+              {/* Live Demo URL */}
+              {latest.preview_demo_url && (
+                <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-card p-3.5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Globe className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span className="text-xs font-semibold text-slate-900 dark:text-white shrink-0">
+                      Live Working Demo:
+                    </span>
+                    <a
+                      href={latest.preview_demo_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline truncate"
+                    >
+                      {latest.preview_demo_url}
+                    </a>
+                  </div>
+                  <a
+                    href={latest.preview_demo_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 shrink-0 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                  >
+                    <span>Open Demo</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+
+              {/* Preview Links */}
+              <div>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground mb-2">
+                  Preview Links &amp; Proof of Work ({latest.preview_links?.length ?? 0}):
+                </p>
+                <div className="space-y-1.5 rounded-lg border border-border bg-card p-3.5">
+                  {(latest.preview_links ?? []).map((l: string, i: number) => (
+                    <div key={i}>
+                      <SafeLink url={l} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preview Notes */}
+              {latest.preview_notes && (
+                <div className="rounded-lg border border-border bg-card p-3.5 space-y-1">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1.5">
+                    <FileText className="h-3 w-3 text-muted-foreground" />
+                    <span>Freelancer Preview Notes:</span>
+                  </p>
+                  <p className="text-xs text-foreground/90 whitespace-pre-wrap leading-relaxed">
+                    {latest.preview_notes}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* ── Section B: Final Deliverable Package ── */}
+            <FinalFilesPanel
+              submissionId={latest.id}
+              unlocked={Boolean(latest.final_unlocked)}
+            />
+          </div>
+        )}
+
         {/* Acceptance Criteria Checklist (client side verify) */}
         {criteria.length > 0 && (
           <div className="rounded-lg border border-border bg-card p-6 shadow-xs space-y-3">
@@ -190,7 +305,7 @@ export default async function ReviewPage({
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Your Evaluation &amp; Payout Decision</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Approving will immediately release the held escrow reward to the freelancer&apos;s wallet.
+                Review the preview package above. Accepting will immediately release the held escrow reward and unlock the original deliverable files.
               </p>
             </div>
 
@@ -204,7 +319,7 @@ export default async function ReviewPage({
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
                       <CheckCircle2 className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-                      <span>Approve &amp; Release</span>
+                      <span>Accept</span>
                     </span>
                     <input
                       type="radio"
@@ -215,7 +330,7 @@ export default async function ReviewPage({
                     />
                   </div>
                   <span className="text-[11px] text-muted-foreground leading-tight">
-                    Deliverable passes all acceptance criteria. Release escrow immediately.
+                    Deliverables meet requirements. Releases escrow payment and unlocks the original deliverable package immediately.
                   </span>
                 </label>
 
@@ -241,8 +356,8 @@ export default async function ReviewPage({
                   </div>
                   <span className="text-[11px] text-muted-foreground leading-tight">
                     {revisionsLeft > 0
-                      ? `${revisionsLeft} revision(s) remaining. Feedback notes required.`
-                      : "Revision cap reached (3 of 3). Approve or reject."}
+                      ? `${revisionsLeft} revision(s) remaining. Files stay locked; freelancer resubmits both packages.`
+                      : "Revision cap reached (3 of 3). Accept or decline."}
                   </span>
                 </label>
 
@@ -250,17 +365,17 @@ export default async function ReviewPage({
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
                       <XCircle className="h-4 w-4 text-red-500" />
-                      <span>Reject Work</span>
+                      <span>Decline</span>
                     </span>
                     <input
                       type="radio"
                       name="decision"
-                      value="reject"
+                      value="decline"
                       className="text-red-600 focus:ring-red-500 cursor-pointer"
                     />
                   </div>
                   <span className="text-[11px] text-muted-foreground leading-tight">
-                    Work does not meet baseline requirements. Detailed feedback required.
+                    Work does not fulfill criteria. No payment released; original files stay locked. Choose refund or reopen below.
                   </span>
                 </label>
               </div>
@@ -269,30 +384,33 @@ export default async function ReviewPage({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                   Detailed Feedback Notes{" "}
                   <span className="text-muted-foreground font-normal lowercase">
-                    (required if requesting revisions or rejecting)
+                    (mandatory if requesting revision or declining)
                   </span>
                 </label>
                 <textarea
                   name="feedback"
                   rows={3}
                   maxLength={2000}
-                  placeholder="Explain clearly what requires modification or which criteria failed testing..."
+                  placeholder="Explain clearly what requires modification or why the deliverable is declined..."
                   className="w-full rounded-md border border-input bg-background p-3 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-400 transition-colors"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                  If Rejected, What Happens to This Task?
+                  If Declined, What Happens to This Milestone?
                 </label>
                 <select
                   name="reopen"
                   defaultValue="1"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 dark:focus:border-blue-400 transition-colors cursor-pointer"
                 >
-                  <option value="1">Reopen on marketplace for other talent (Escrow stays locked)</option>
-                  <option value="0">Cancel task and refund escrow back to my wallet</option>
+                  <option value="1">Reopen milestone on marketplace for new freelancers (escrow stays reserved)</option>
+                  <option value="0">Close milestone and refund reserved escrow back to my wallet</option>
                 </select>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Declining terminates this submission cycle. Original files will remain permanently locked and inaccessible.
+                </p>
               </div>
 
               <div className="pt-2">

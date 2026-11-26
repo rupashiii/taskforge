@@ -15,7 +15,7 @@ export type HistoryItem = {
 
 const DECISION: Record<string, { label: string; className: string; icon: any }> = {
   approve: {
-    label: "Approved & Released",
+    label: "Accepted & Released",
     className: "bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800",
     icon: CheckCircle2,
   },
@@ -25,7 +25,12 @@ const DECISION: Record<string, { label: string; className: string; icon: any }> 
     icon: RotateCcw,
   },
   reject: {
-    label: "Rejected",
+    label: "Declined",
+    className: "bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
+    icon: XCircle,
+  },
+  decline: {
+    label: "Declined",
     className: "bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
     icon: XCircle,
   },
