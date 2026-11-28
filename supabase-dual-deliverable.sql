@@ -45,27 +45,12 @@ VALUES (
   'deliverables',
   FALSE,          -- PRIVATE bucket
   52428800,       -- 50 MB per file
-  ARRAY[
-    'application/zip',
-    'application/x-zip-compressed',
-    'application/octet-stream',
-    'application/pdf',
-    'application/x-tar',
-    'application/gzip',
-    'application/x-7z-compressed',
-    'application/vnd.rar',
-    'image/png', 'image/jpeg', 'image/gif', 'image/webp',
-    'video/mp4', 'video/webm',
-    'text/plain', 'text/markdown',
-    'application/json',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'application/msword',
-    'application/vnd.ms-excel'
-  ]
+  NULL            -- allow any file type (source code, archives, documents, designs, etc.)
 )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  public = FALSE,
+  file_size_limit = 52428800,
+  allowed_mime_types = NULL;
 
 -- ─── 3. Storage RLS for deliverables bucket ─────────────────
 
@@ -76,7 +61,10 @@ CREATE POLICY "Freelancers can upload final deliverables"
   TO authenticated
   WITH CHECK (
     bucket_id = 'deliverables'
-    AND (storage.foldername(name))[1] = auth.uid()::text
+    AND (
+      (storage.foldername(name))[1] = auth.uid()::text
+      OR name LIKE (auth.uid()::text || '/%')
+    )
   );
 
 -- Freelancers can read their own uploaded files
@@ -86,13 +74,28 @@ CREATE POLICY "Freelancers can read own deliverables"
   TO authenticated
   USING (
     bucket_id = 'deliverables'
-    AND (storage.foldername(name))[1] = auth.uid()::text
+    AND (
+      (storage.foldername(name))[1] = auth.uid()::text
+      OR name LIKE (auth.uid()::text || '/%')
+    )
   );
 
--- Clients can read final files ONLY if final_unlocked = true on that submission
--- This is enforced server-side via signed URLs; the RLS here is an extra safety layer.
--- We allow the service role (used in Next.js server actions) to generate signed URLs.
--- Direct client access is blocked — no broad client SELECT policy is created.
+-- Clients can read final deliverables ONLY after payment release (final_unlocked = true)
+DROP POLICY IF EXISTS "Clients can read unlocked deliverables" ON storage.objects;
+CREATE POLICY "Clients can read unlocked deliverables"
+  ON storage.objects FOR SELECT
+  TO authenticated
+  USING (
+    bucket_id = 'deliverables'
+    AND EXISTS (
+      SELECT 1 FROM public.submissions s
+      JOIN public.tasks t ON t.id = s.task_id
+      JOIN public.projects p ON p.id = t.project_id
+      WHERE p.client_id = auth.uid()
+        AND s.final_unlocked = TRUE
+        AND storage.objects.name = ANY(s.final_file_paths)
+    )
+  );
 
 -- ─── 4. Update submit_work RPC to accept preview + final fields ─
 

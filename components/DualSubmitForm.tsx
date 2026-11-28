@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { submitWork } from "@/app/my-tasks/actions";
+import { createClient } from "@/lib/supabase/client";
 import {
   Send,
   Upload,
@@ -41,6 +42,19 @@ export default function DualSubmitForm({ taskId, isRevision }: DualSubmitFormPro
     setUploading(true);
 
     const newPaths: UploadedFile[] = [];
+    const supabase = createClient();
+
+    // 1. Ensure caller is authenticated in the browser
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabase.auth.getUser();
+
+    if (userErr || !user) {
+      setUploadError("You must be logged in to upload deliverable files.");
+      setUploading(false);
+      return;
+    }
 
     for (const file of files) {
       if (file.size > 50 * 1024 * 1024) {
@@ -50,42 +64,33 @@ export default function DualSubmitForm({ taskId, isRevision }: DualSubmitFormPro
       }
 
       try {
-        // 1. Get a signed upload URL from our server
-        const urlRes = await fetch("/api/submissions/upload-url", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileName: file.name,
-            fileType: file.type || "application/octet-stream",
-            fileSize: file.size,
-            taskId,
-          }),
-        });
+        const sanitized = file.name
+          .replace(/[^a-zA-Z0-9._-]/g, "_")
+          .slice(0, 100);
+        const storagePath = `${user.id}/${taskId}/${Date.now()}-${sanitized}`;
 
-        const urlData = await urlRes.json();
+        // 2. Direct upload to Supabase Storage using authenticated browser client
+        const { error: uploadError } = await supabase.storage
+          .from("deliverables")
+          .upload(storagePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
 
-        if (!urlRes.ok) {
-          setUploadError(urlData.error ?? "Failed to get upload URL.");
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          setUploadError(
+            uploadError.message ||
+              `Failed to upload "${file.name}". Please ensure the deliverables bucket exists in Supabase.`
+          );
           setUploading(false);
           return;
         }
 
-        // 2. Upload directly to Supabase Storage using the signed URL
-        const uploadRes = await fetch(urlData.signedUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          body: file,
-        });
-
-        if (!uploadRes.ok) {
-          setUploadError(`Failed to upload "${file.name}". Please try again.`);
-          setUploading(false);
-          return;
-        }
-
-        newPaths.push({ name: file.name, path: urlData.path, size: file.size });
+        newPaths.push({ name: file.name, path: storagePath, size: file.size });
       } catch (err: any) {
-        setUploadError(err.message ?? "Upload failed.");
+        console.error("Upload exception:", err);
+        setUploadError(err.message ?? `Failed to upload "${file.name}".`);
         setUploading(false);
         return;
       }
@@ -256,7 +261,6 @@ export default function DualSubmitForm({ taskId, isRevision }: DualSubmitFormPro
             id="final-file-input"
             className="sr-only"
             onChange={handleFileChange}
-            accept=".zip,.tar,.gz,.7z,.rar,.pdf,.png,.jpg,.jpeg,.gif,.webp,.mp4,.webm,.txt,.md,.json,.docx,.xlsx,.pptx,.doc,.xls"
           />
           <label
             htmlFor="final-file-input"

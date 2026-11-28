@@ -51,27 +51,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ urls: [] });
     }
 
-    // 3. Use service-role client to generate signed URLs (private bucket)
-    //    Service-role bypasses storage RLS — that's intentional here because
-    //    we already validated access through the check_final_access RPC above.
+    // 3. Generate signed URLs for deliverables (private bucket)
     const service = createServiceClient();
-
     const signedUrls: { path: string; url: string; name: string }[] = [];
 
     for (const path of paths) {
-      const { data, error } = await service.storage
-        .from("deliverables")
-        .createSignedUrl(path, 3600); // 1 hour signed URL
+      let signData: { signedUrl: string } | null = null;
 
-      if (error || !data?.signedUrl) {
-        console.error("Failed to sign URL for path:", path, error);
+      // Try service client first
+      try {
+        const { data, error } = await service.storage
+          .from("deliverables")
+          .createSignedUrl(path, 3600);
+        if (!error && data?.signedUrl) {
+          signData = data;
+        }
+      } catch (e) {
+        // Fallback below
+      }
+
+      // If service role key is not configured, fallback to authenticated user client
+      if (!signData) {
+        try {
+          const { data, error } = await supabase.storage
+            .from("deliverables")
+            .createSignedUrl(path, 3600);
+          if (!error && data?.signedUrl) {
+            signData = data;
+          } else if (error) {
+            console.error("Failed to sign URL with user client:", path, error);
+          }
+        } catch (e) {
+          console.error("Sign URL exception:", e);
+        }
+      }
+
+      if (!signData?.signedUrl) {
+        console.error("Could not generate signed URL for path:", path);
         continue;
       }
 
       // Extract a human-readable filename from the storage path
       const name = path.split("/").pop() ?? path;
 
-      signedUrls.push({ path, url: data.signedUrl, name });
+      signedUrls.push({ path, url: signData.signedUrl, name });
     }
 
     return NextResponse.json({ urls: signedUrls });
