@@ -187,9 +187,26 @@ END;
 $$;
 
 -- ─── 5. Update review_submission RPC ────────────────────────
--- Adds final_unlocked=TRUE on approve, keeps everything else the same.
--- Rename 'reject' decision handling to also accept 'decline' as alias.
+-- Drops all older overloaded versions (including enum-typed versions)
+-- to resolve PostgreSQL function overloading ambiguity.
 
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN (
+    SELECT oid::regprocedure AS func_signature
+    FROM pg_proc
+    WHERE proname = 'review_submission'
+      AND pronamespace = 'public'::regnamespace
+  ) LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.func_signature || ' CASCADE';
+  END LOOP;
+END $$;
+
+DROP FUNCTION IF EXISTS public.review_submission(UUID, public.review_decision, TEXT, BOOLEAN);
+DROP FUNCTION IF EXISTS public.review_submission(UUID, public.review_decision, TEXT);
+DROP FUNCTION IF EXISTS public.review_submission(UUID, public.review_decision);
 DROP FUNCTION IF EXISTS public.review_submission(UUID, TEXT, TEXT, BOOLEAN);
 DROP FUNCTION IF EXISTS public.review_submission(UUID, TEXT, TEXT);
 DROP FUNCTION IF EXISTS public.review_submission(UUID, TEXT);
@@ -264,7 +281,7 @@ BEGIN
 
   -- 6. Record the review decision
   INSERT INTO public.reviews (submission_id, decision, feedback, created_at)
-  VALUES (p_submission_id, v_normalized, p_feedback, NOW());
+  VALUES (p_submission_id, v_normalized::public.review_decision, p_feedback, NOW());
 
   -- ── APPROVE branch ──────────────────────────────────────────
   IF v_normalized = 'approve' THEN
@@ -282,7 +299,7 @@ BEGIN
     VALUES (v_project.client_id, 'release', v_task.reward_amount, v_task.id);
 
     INSERT INTO public.wallet_transactions (user_id, type, amount, task_id)
-    VALUES (v_task.assigned_to, 'payout', v_task.reward_amount, v_task.id);
+    VALUES (COALESCE(v_task.assigned_to, v_sub.freelancer_id), 'payout', v_task.reward_amount, v_task.id);
 
     -- Unlock final deliverables ONLY after payment records are committed
     UPDATE public.submissions
@@ -316,13 +333,13 @@ BEGIN
     END IF;
 
     IF p_feedback IS NULL OR trim(p_feedback) = '' THEN
-      RAISE EXCEPTION 'Feedback is required when requesting a revision';
+      RAISE EXCEPTION 'Feedback notes are required when requesting revisions';
     END IF;
 
     -- Increment revision counter and change task status
     UPDATE public.tasks
     SET status = 'revision_requested',
-        revision_count = revision_count + 1
+        revision_count = COALESCE(revision_count, 0) + 1
     WHERE id = v_task.id;
 
     -- final_unlocked remains FALSE
@@ -332,7 +349,7 @@ BEGIN
   ELSIF v_normalized = 'reject' THEN
 
     IF p_feedback IS NULL OR trim(p_feedback) = '' THEN
-      RAISE EXCEPTION 'A reason is required when declining a submission';
+      RAISE EXCEPTION 'A detailed reason is required when declining work';
     END IF;
 
     IF p_reopen THEN
