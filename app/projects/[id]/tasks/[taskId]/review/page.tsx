@@ -198,6 +198,7 @@ export default async function ReviewPage({
                       {new Date(latest.created_at).toLocaleString("en-IN", {
                         dateStyle: "medium",
                         timeStyle: "short",
+                        timeZone: "Asia/Kolkata",
                       })}
                     </p>
                   </div>

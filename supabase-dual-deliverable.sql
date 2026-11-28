@@ -145,7 +145,12 @@ BEGIN
     RAISE EXCEPTION 'At least one preview link is required';
   END IF;
 
-  -- 5. Compute next version number
+  -- 5. At least one final deliverable file is required
+  IF array_length(p_final_paths, 1) IS NULL OR array_length(p_final_paths, 1) = 0 THEN
+    RAISE EXCEPTION 'At least one final deliverable file is required';
+  END IF;
+
+  -- 6. Compute next version number
   SELECT COALESCE(MAX(version), 0) + 1
   INTO v_next_version
   FROM public.submissions

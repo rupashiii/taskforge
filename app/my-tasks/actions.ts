@@ -83,8 +83,12 @@ export async function submitWork(formData: FormData) {
         finalPaths = parsed.filter((p) => typeof p === "string" && p.length > 0);
       }
     } catch {
-      // Invalid JSON — ignore, final paths are optional
+      // Invalid JSON
     }
+  }
+
+  if (finalPaths.length === 0) {
+    fail("Upload at least one deliverable file in the Final Deliverable Package before submitting.");
   }
 
   const { error } = await supabase.rpc("submit_work", {

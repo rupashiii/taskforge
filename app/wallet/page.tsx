@@ -265,6 +265,7 @@ export default async function WalletPage({
                           {new Date(t.created_at).toLocaleString("en-IN", {
                             dateStyle: "medium",
                             timeStyle: "short",
+                            timeZone: "Asia/Kolkata",
                           })}
                           {taskTitle && (
                             <span className="ml-1 text-foreground font-sans">

@@ -78,6 +78,7 @@ export default function SubmissionHistory({ items }: { items: HistoryItem[] }) {
                 {new Date(s.created_at).toLocaleString("en-IN", {
                   dateStyle: "medium",
                   timeStyle: "short",
+                  timeZone: "Asia/Kolkata",
                 })}
               </span>
             </div>
@@ -107,7 +108,12 @@ export default function SubmissionHistory({ items }: { items: HistoryItem[] }) {
                     <span>{decisionCfg.label}</span>
                   </span>
                   <span className="text-[10px] text-muted-foreground font-mono">
-                    Reviewed on {new Date(s.review.created_at).toLocaleDateString("en-IN")}
+                    Reviewed on{" "}
+                    {new Date(s.review.created_at).toLocaleString("en-IN", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                      timeZone: "Asia/Kolkata",
+                    })}
                   </span>
                 </div>
 

@@ -114,6 +114,10 @@ export default function DualSubmitForm({ taskId, isRevision }: DualSubmitFormPro
   }
 
   async function handleSubmit(formData: FormData) {
+    if (uploadedFiles.length === 0) {
+      setUploadError("Please upload at least one final deliverable file before submitting.");
+      return;
+    }
     setSubmitting(true);
     // Inject final file paths as JSON into the hidden field
     formData.set("final_paths", JSON.stringify(uploadedFiles.map((f) => f.path)));
@@ -211,14 +215,14 @@ export default function DualSubmitForm({ taskId, isRevision }: DualSubmitFormPro
           <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
             B — Final Deliverable Package{" "}
-            <span className="font-normal lowercase tracking-normal">(securely locked until accepted)</span>
+            <span className="font-semibold text-red-500 lowercase tracking-normal">(mandatory — at least 1 file required)</span>
           </h4>
         </div>
         <p className="text-[11px] text-amber-700 dark:text-amber-400">
           Upload your actual deliverables here — source code, ZIP, design files,
-          documents, etc. The client <strong>cannot access these files</strong>{" "}
-          until they accept the submission and the payment is successfully
-          released from escrow.
+          documents, etc. <strong>At least one file is required.</strong> The client{" "}
+          <strong>cannot access these files</strong> until they accept the
+          submission and the payment is successfully released from escrow.
         </p>
 
         {uploadError && (
