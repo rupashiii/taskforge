@@ -7,6 +7,7 @@ import {
   Clock,
   ArrowRight,
   Sparkles,
+  XCircle,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -79,8 +80,37 @@ export default async function MarketplacePage({
     .select("task_id, status")
     .eq("freelancer_id", user.id);
 
+  // Submissions and reviews for this freelancer to detect rejected tasks
+  const { data: mySubs } = await supabase
+    .from("submissions")
+    .select("id, task_id")
+    .eq("freelancer_id", user.id);
+
+  const mySubIds = (mySubs ?? []).map((s: any) => s.id);
+
+  const { data: myRejectedReviews } = mySubIds.length
+    ? await supabase
+        .from("reviews")
+        .select("submission_id")
+        .eq("decision", "reject")
+        .in("submission_id", mySubIds)
+    : { data: [] };
+
+  const rejectedSubIdSet = new Set(
+    (myRejectedReviews ?? []).map((r: any) => r.submission_id)
+  );
+
+  const rejectedTaskIds = new Set<string>();
+  for (const s of (mySubs ?? []) as any[]) {
+    if (rejectedSubIdSet.has(s.id)) {
+      rejectedTaskIds.add(s.task_id);
+    }
+  }
+
   const appliedIds = new Set(
-    (myApps ?? []).filter((a) => a.status !== "withdrawn").map((a) => a.task_id)
+    (myApps ?? [])
+      .filter((a) => a.status !== "withdrawn" && !rejectedTaskIds.has(a.task_id))
+      .map((a) => a.task_id)
   );
 
   return (
@@ -206,6 +236,7 @@ export default async function MarketplacePage({
               const project = one<{ title: string }>(t.projects as any);
               const skills: string[] = t.skills_required ?? [];
               const isMatch = skills.some((s) => mySkillSet.has(s));
+              const isRejected = rejectedTaskIds.has(t.id);
               const isApplied = appliedIds.has(t.id);
               const isExpired = t.deadline
                 ? new Date(t.deadline).setHours(23, 59, 59, 999) < Date.now()
@@ -215,14 +246,22 @@ export default async function MarketplacePage({
                 <Link
                   key={t.id}
                   href={`/marketplace/${t.id}`}
-                  className="group flex flex-col justify-between rounded-lg border border-border bg-card p-4.5 hover:border-blue-500/50 hover:shadow-xs transition-all"
+                  className={`group flex flex-col justify-between rounded-lg border bg-card p-4.5 transition-all ${
+                    isRejected
+                      ? "border-red-200 dark:border-red-900/60 bg-red-50/20 dark:bg-red-950/10 hover:border-red-400"
+                      : "border-border hover:border-blue-500/50 hover:shadow-xs"
+                  }`}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <span className="text-[11px] font-semibold text-muted-foreground line-clamp-1">
                         {project?.title ?? "Project"}
                       </span>
-                      {isApplied ? (
+                      {isRejected ? (
+                        <span className="shrink-0 rounded-md bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-400">
+                          Work Rejected · Cannot Apply
+                        </span>
+                      ) : isApplied ? (
                         <span className="shrink-0 rounded-md bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-900 px-2 py-0.5 text-[10px] font-bold text-teal-700 dark:text-teal-300">
                           Pitch Submitted
                         </span>
@@ -244,6 +283,13 @@ export default async function MarketplacePage({
                     <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                       {t.description}
                     </p>
+
+                    {isRejected && (
+                      <div className="mt-2.5 rounded-md bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 px-2.5 py-1.5 text-[11px] font-medium text-red-700 dark:text-red-300 flex items-center gap-1.5">
+                        <XCircle className="h-3.5 w-3.5 shrink-0 text-red-500" />
+                        <span>You were previously assigned to this task and your work was rejected. You cannot re-apply.</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-border">
@@ -276,9 +322,15 @@ export default async function MarketplacePage({
                             {t.estimated_hours}h
                           </span>
                         )}
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 group-hover:translate-x-0.5 transition-transform">
-                          Inspect <ArrowRight className="h-3 w-3" />
-                        </span>
+                        {isRejected ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
+                            Ineligible <ArrowRight className="h-3 w-3" />
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 group-hover:translate-x-0.5 transition-transform">
+                            Inspect <ArrowRight className="h-3 w-3" />
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

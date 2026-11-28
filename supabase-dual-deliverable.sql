@@ -364,6 +364,12 @@ BEGIN
           assigned_to = NULL,
           revision_count = 0
       WHERE id = v_task.id;
+
+      -- Mark this freelancer's application as rejected so it does not stay 'accepted'
+      UPDATE public.applications
+      SET status = 'rejected'
+      WHERE task_id = v_task.id
+        AND freelancer_id = v_sub.freelancer_id;
       -- Escrow remains locked for the next freelancer
     ELSE
       -- Cancel task and refund escrow to client

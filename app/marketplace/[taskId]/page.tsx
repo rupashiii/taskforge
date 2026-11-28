@@ -9,7 +9,8 @@ import {
   Clock,
   Send,
   ExternalLink,
-  Lock
+  Lock,
+  XCircle,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -92,6 +93,27 @@ export default async function TaskDetailPage({
     .eq("freelancer_id", user.id)
     .maybeSingle();
 
+  // Check if current user had a submission rejected for this task
+  const { data: mySubmissions } = await supabase
+    .from("submissions")
+    .select("id")
+    .eq("task_id", taskId)
+    .eq("freelancer_id", user.id);
+
+  const mySubIds = (mySubmissions ?? []).map((s: any) => s.id);
+  const { data: rejectedReviews } = mySubIds.length
+    ? await supabase
+        .from("reviews")
+        .select("id, feedback, created_at")
+        .eq("decision", "reject")
+        .in("submission_id", mySubIds)
+        .order("created_at", { ascending: false })
+        .limit(1)
+    : { data: [] };
+
+  const isWorkRejected = (rejectedReviews ?? []).length > 0;
+  const latestRejection = rejectedReviews?.[0];
+
   const isFreelancer = profile?.role === "freelancer";
   const isOpen = task.status === "open";
   const isOverdue = task.deadline
@@ -101,6 +123,7 @@ export default async function TaskDetailPage({
     isFreelancer &&
     isOpen &&
     !isOverdue &&
+    !isWorkRejected &&
     (!myApplication || myApplication.status === "withdrawn");
 
   const skills: string[] = task.skills_required ?? [];
@@ -240,6 +263,29 @@ export default async function TaskDetailPage({
                 </span>
                 . Applications will reopen if the client extends the deadline.
               </p>
+            </div>
+          ) : isWorkRejected ? (
+            <div className="rounded-xl border border-red-200 dark:border-red-900 bg-red-50/60 dark:bg-red-950/20 p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-red-900 dark:text-red-200 flex items-center gap-1.5">
+                  <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  Work Rejected · Cannot Apply
+                </span>
+                <span className="rounded-md border border-red-300 dark:border-red-800 bg-red-100 dark:bg-red-900/60 px-2.5 py-0.5 text-xs font-bold text-red-800 dark:text-red-300">
+                  Ineligible
+                </span>
+              </div>
+              <p className="text-xs text-red-800 dark:text-red-300 leading-relaxed">
+                You were previously selected and assigned to this task, but your submitted deliverables were rejected by the client. This task has been reopened for other freelancers; you cannot re-apply.
+              </p>
+              {latestRejection?.feedback && (
+                <div className="rounded-md border border-border bg-card p-3 text-xs">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                    Client Decline Reason:
+                  </span>
+                  <p className="text-foreground/90 whitespace-pre-wrap">{latestRejection.feedback}</p>
+                </div>
+              )}
             </div>
           ) : myApplication && myApplication.status !== "withdrawn" ? (
             <div className="space-y-3">
